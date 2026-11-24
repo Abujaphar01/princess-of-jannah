@@ -19,17 +19,20 @@ from config import (
     MEDIA_DIR,
     POST_TIMES,
     now_wat,
+    sync_state_to_github,
 )
 from downloader import (
     download_video,
     load_scholars,
     match_scholar,
     clean_caption,
+    find_ffmpeg_location,
 )
 from viral_growth import (
     get_adaptive_wat_schedule,
     master_video_for_retention,
     format_whatsapp_analytics_card,
+    build_viral_caption,
 )
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -159,15 +162,45 @@ def ingest_whatsapp_link(sender_phone: str, source_url: str, extra_text: str = "
         f"• *Tsawon Bidiyo*: {dur_str}\n"
         f"• *Taken/Caption*: {caption_preview}\n"
         f"• *Zango a Queue*: #{pos}\n"
-        f"• *Lokacin Wallafawa*: {sched_str}"
+        f"• *Lokacin Wallafawa*: {sched_str}\n"
+        f"• *Cloud Sync*: ✅ An adana a GitHub 24/7 Cloud"
     )
     return card
 
 
+def _probe_video_duration_sec(video_path: Path) -> int:
+    """
+    Probes the actual duration in seconds of a local video file using FFmpeg.
+    """
+    import re
+    import subprocess
+
+    ffmpeg_bin = find_ffmpeg_location()
+    if not ffmpeg_bin or not video_path.exists():
+        return 0
+    try:
+        res = subprocess.run(
+            [ffmpeg_bin, "-i", str(video_path)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", res.stderr or "")
+        if m:
+            hrs, mins, secs = int(m.group(1)), int(m.group(2)), float(m.group(3))
+            return int(round(hrs * 3600 + mins * 60 + secs))
+    except Exception:
+        pass
+    return 0
+
+
 def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str = "") -> str:
     """
-    Moves a direct video file uploaded in 'Princess of Jannah Posts' into media_vault,
-    queues it automatically for the next WAT slot, and returns a confirmation card.
+    Treats a direct video file uploaded in 'Princess of Jannah Posts' identically to a shared link:
+    1. Moves into media_vault/ and runs FFmpeg 0.0s hook & voice clarity mastering.
+    2. Probes exact duration in seconds.
+    3. Detects scholar & preserves user caption (or builds a rotating Hausa viral caption if none/short).
+    4. Queues for the next adaptive WAT slot & syncs the MP4 + queue.json straight to GitHub 24/7 Cloud.
     """
     src_path = Path(video_path)
     if not src_path.exists():
@@ -192,13 +225,22 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
         pass
 
     audio_mastered = master_video_for_retention(output_path)
+    duration = _probe_video_duration_sec(output_path)
 
-    caption = clean_caption(
-        raw_title=raw_caption,
-        raw_description=raw_caption,
-        scholar=scholar,
-        is_shared_link=True,
-    )
+    clean_raw = (raw_caption or "").strip()
+    if len(clean_raw) > 20:
+        caption = clean_caption(
+            raw_title=clean_raw,
+            raw_description=clean_raw,
+            scholar=scholar,
+            is_shared_link=True,
+        )
+    else:
+        caption = build_viral_caption(
+            raw_title=clean_raw,
+            scholar=scholar,
+            is_shared_link=False,
+        )
 
     item = {
         "id": unique_id,
@@ -206,8 +248,8 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
         "source_url": "whatsapp_direct_upload",
         "video_path": str(output_path.resolve()),
         "caption": caption,
-        "duration": 0,
-        "scholar": scholar["name"] if scholar else "Authentic Islamic Scholar",
+        "duration": duration,
+        "scholar": scholar["name"] if scholar else "Maluman Sunnah",
         "scholar_id": scholar["id"] if scholar else "unknown",
         "is_shared_link": True,
         "audio_mastered": audio_mastered,
@@ -221,19 +263,25 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
     with open(QUEUE_FILE, "w", encoding="utf-8") as f:
         json.dump(queue, f, indent=2, ensure_ascii=False)
 
+    # Sync both the mastered MP4 in media_vault/ and data/queue.json to GitHub 24/7 Cloud
+    sync_state_to_github(f"Auto: Queue direct WhatsApp video [{unique_id}] for {item['scholar']} [skip ci]")
+
     pending = [q for q in queue if q.get("status") == "pending"]
     pos = len(pending)
     sched_str = compute_scheduled_slot_for_queue_position(pos)
     caption_preview = caption.split("\n")[0][:110]
+    dur_str = f"{int(duration)}s" if duration else "Short Reel"
 
     card = (
         f"*PRINCESS OF JANNAH*\n\n"
         f"Assalamu Alaikum {sender_phone},\n"
         f"✅ An karɓi bidiyo kai tsaye kuma an saka a Queue (`#{unique_id}`).\n\n"
         f"• *Malami*: {item['scholar']}\n"
+        f"• *Tsawon Bidiyo*: {dur_str}\n"
         f"• *Taken/Caption*: {caption_preview}\n"
         f"• *Zango a Queue*: #{pos}\n"
-        f"• *Lokacin Wallafawa*: {sched_str}"
+        f"• *Lokacin Wallafawa*: {sched_str}\n"
+        f"• *Cloud Sync*: ✅ An adana a GitHub 24/7 Cloud"
     )
     return card
 

@@ -67,6 +67,7 @@ function extractText(msg) {
         m.extendedTextMessage?.text ||
         m.imageMessage?.caption ||
         m.videoMessage?.caption ||
+        m.documentMessage?.caption ||
         ''
     ).trim();
 }
@@ -406,17 +407,25 @@ async function startWhatsAppBot() {
                     continue;
                 }
 
-                // 5. Direct Video Upload Detection
+                // 5. Direct Video Upload Detection (Supports standard video & video-as-document)
+                const docMsg = msg.message.documentMessage ||
+                    msg.message.documentWithCaptionMessage?.message?.documentMessage ||
+                    msg.message.ephemeralMessage?.message?.documentMessage;
+                const isVideoDoc = docMsg && (
+                    (docMsg.mimetype && docMsg.mimetype.startsWith('video/')) ||
+                    /\.(mp4|mov|mkv|webm)$/i.test(docMsg.fileName || '')
+                );
                 const isVideo = msg.message.videoMessage ||
                     msg.message.ephemeralMessage?.message?.videoMessage ||
                     msg.message.viewOnceMessage?.message?.videoMessage ||
-                    msg.message.viewOnceMessageV2?.message?.videoMessage;
+                    msg.message.viewOnceMessageV2?.message?.videoMessage ||
+                    isVideoDoc;
 
                 if (isVideo) {
                     log(`[+] Direct video uploaded by ${senderPhone}`);
 
                     await sendSafeMessage(sock, from, {
-                        text: `An karɓi bidiyo daga ${senderPhone}. Ana sakawa a Queue...`,
+                        text: `An karɓi bidiyo daga ${senderPhone}. Ana gyara sauti (FFmpeg), sakawa a Queue, da turawa zuwa GitHub 24/7 Cloud...`,
                         mentions: [sender]
                     }, msg);
 
@@ -439,7 +448,7 @@ async function startWhatsAppBot() {
                         execFile(
                             'python',
                             ['whatsapp_pipeline.py', '--video', filepath, '--phone', senderPhone, '--caption', text],
-                            { timeout: 120000 },
+                            { timeout: 600000 },
                             async (error, stdout, stderr) => {
                                 if (error) {
                                     log(`[EXEC ERROR] ${error.message} | ${stderr}`);
