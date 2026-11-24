@@ -87,7 +87,7 @@ def sync_state_to_github(commit_msg: str = "Auto: Sync queue and history state [
         git_dir = BASE_DIR / ".git"
         if not git_dir.exists():
             return False
-        subprocess.run(["git", "add", "data/queue.json", "data/history.json"], cwd=str(BASE_DIR), capture_output=True, timeout=15)
+        subprocess.run(["git", "add", "data/queue.json", "data/history.json", "media_vault"], cwd=str(BASE_DIR), capture_output=True, timeout=20)
         res = subprocess.run(["git", "commit", "-m", commit_msg], cwd=str(BASE_DIR), capture_output=True, text=True, timeout=15)
         if res.returncode == 0:
             subprocess.run(["git", "push", "origin", "main"], cwd=str(BASE_DIR), capture_output=True, timeout=30)

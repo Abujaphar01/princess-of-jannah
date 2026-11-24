@@ -13,7 +13,7 @@
     "status": "pending",
     "viral_archetype": 0,
     "audio_mastered": true,
-    "last_error": "Failed to publish to Facebook: {'error': {'message': 'Error validating access token: Session has expired on Sunday, 22-Nov-26 10:00:00 PST. The current time is Tuesday, 24-Nov-26 02:45:22 PST.', 'type': 'OAuthException', 'code': 190, 'error_subcode': 463, 'fbtrace_id': 'Atf8dRMEJ_tLzESY-GX6V9X'}}"
+    "last_error": "Failed to publish to Facebook: {'error': {'message': 'Error validating access token: Session has expired on Sunday, 22-Nov-26 10:00:00 PST. The current time is Tuesday, 24-Nov-26 04:04:11 PST.', 'type': 'OAuthException', 'code': 190, 'error_subcode': 463, 'fbtrace_id': 'A3vEPgtE_zQuyUhdLZ_rF44'}}"
   },
   {
     "id": "cfb8d8f7",

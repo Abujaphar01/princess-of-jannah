@@ -114,19 +114,23 @@ def publish_reel_to_facebook(video_path: str, caption: str):
 
 def _ensure_local_video(item: dict) -> str:
     """
-    Verifies the queued video file exists locally.
-    If missing (e.g., running on a fresh cloud/GitHub Actions runner), re-downloads it from source_url.
+    Verifies the queued video file exists locally (cross-OS Windows/Linux safe).
+    If missing, re-downloads it from source_url.
     """
-    video_path = Path(item.get("video_path", ""))
-    if video_path.exists() and video_path.is_file():
+    import re
+
+    raw_path = item.get("video_path", "")
+    video_path = Path(raw_path)
+    if raw_path and video_path.exists() and video_path.is_file():
         return str(video_path)
 
-    # Reconstruct local path inside MEDIA_DIR so cross-OS paths (Windows -> Linux) work seamlessly
-    filename = video_path.name if video_path.name else f"{item.get('scholar_id', 'scholar')}_{item['id']}.mp4"
+    # Cross-OS basename extraction (handles Windows backslashes on Linux runners)
+    clean_name = re.split(r"[/\\]", raw_path)[-1] if raw_path else ""
+    filename = clean_name if clean_name else f"{item.get('scholar_id', 'scholar')}_{item['id']}.mp4"
     local_target = MEDIA_DIR / filename
     if local_target.exists() and local_target.is_file():
-        item["video_path"] = str(local_target.resolve())
-        return item["video_path"]
+        item["video_path"] = f"media_vault/{filename}"
+        return str(local_target.resolve())
 
     source_url = item.get("source_url")
     if not source_url:

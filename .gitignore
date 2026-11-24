@@ -9,10 +9,8 @@ bot_status.txt
 bot.log
 send_queue.json
 matched_group_jid.txt
-media_vault/*.mp4
-media_vault/*.webm
-media_vault/*.mkv
 media_vault/*.part
 media_vault/*.ytdl
+media_vault/*.mastered.mp4
 data/analytics_cache.json
 .DS_Store
