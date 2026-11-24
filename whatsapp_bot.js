@@ -9,7 +9,9 @@ const {
     useMultiFileAuthState,
     DisconnectReason,
     downloadMediaMessage,
-    jidNormalizedUser
+    jidNormalizedUser,
+    fetchLatestBaileysVersion,
+    Browsers
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
@@ -195,12 +197,15 @@ async function startWhatsAppBot() {
 
     log('Initializing Princess of Jannah WhatsApp Engine...');
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    log(`[*] Using WhatsApp Web v${version.join('.')} (isLatest: ${isLatest})`);
 
     const sock = makeWASocket({
+        version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
         auth: state,
-        browser: ['Princess of Jannah Engine', 'Chrome', '1.0.0'],
+        browser: Browsers.ubuntu('Chrome'),
         keepAliveIntervalMs: 15000,
         emitOwnEvents: true,
         defaultQueryTimeoutMs: 60000,
