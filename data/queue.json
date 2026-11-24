@@ -1,0 +1,61 @@
+[
+  {
+    "id": "8cd87ef2",
+    "source_video_id": "WcLcmY4lRog",
+    "source_url": "https://www.youtube.com/watch?v=WcLcmY4lRog",
+    "video_path": "C:\\Users\\jafar\\Desktop\\Antigravity\\Princess of Jannah\\media_vault\\albani_zaria_8cd87ef2.mp4",
+    "caption": "Abu mai muhimmanci da kowane Musulmi ya kamata ya sani.\n\nMalam: Sheikh Muhammad Auwal Adam Albani Zaria (Rahimahullah)\nMaudu'i: Matakan Nasiha da Hukunci ga Dan Bidi'ah: Sheikh Albaniy Zaria Rahimahullah\n\nSaurari cikakken bayani cikin dakika kadan. @followers ku tura wa 'yan uwa domin amfanarwa.\n\n#AlbaniZaria #PrincessOfJannah #Sunnah #Arewa #Hausa #Kano #Kaduna #Abuja #Tafsiri",
+    "duration": 42,
+    "scholar": "Sheikh Muhammad Auwal Adam Albani Zaria (Rahimahullah)",
+    "scholar_id": "albani_zaria",
+    "is_shared_link": false,
+    "added_at": "2026-11-19T11:16:47.387802+01:00",
+    "status": "pending",
+    "viral_archetype": 0,
+    "audio_mastered": true,
+    "last_error": "Failed to publish to Facebook: {'error': {'message': 'Error validating access token: Session has expired on Sunday, 22-Nov-26 10:00:00 PST. The current time is Tuesday, 24-Nov-26 02:45:22 PST.', 'type': 'OAuthException', 'code': 190, 'error_subcode': 463, 'fbtrace_id': 'Atf8dRMEJ_tLzESY-GX6V9X'}}"
+  },
+  {
+    "id": "cfb8d8f7",
+    "source_video_id": "q-YVa3mGgdo",
+    "source_url": "https://www.youtube.com/watch?v=q-YVa3mGgdo",
+    "video_path": "C:\\Users\\jafar\\Desktop\\Antigravity\\Princess of Jannah\\media_vault\\rijiyar_lemo_cfb8d8f7.mp4",
+    "caption": "Tsaya na dakika daya ka saurari wannan tunatarwar mai girma.\n\nDaga bakin: Prof. Muhammad Sani Umar Rijiyar Lemo\nDarasi: KUSHU'E CIKIN SALLAH [[PROF MUH'D SANI RIJIYAR LEMO]]\n\nAllah ya saka wa Malam da alkhairi, ya kara masa lafiya. @followers kada ku manta ku yada wannan alkhairin.\n\n#RijiyarLemo #PrincessOfJannah #Waazi #HausaIslam #Arewa #Zaria #Maiduguri #Katsina #Sokoto",
+    "duration": 80,
+    "scholar": "Prof. Muhammad Sani Umar Rijiyar Lemo",
+    "scholar_id": "rijiyar_lemo",
+    "is_shared_link": false,
+    "added_at": "2026-11-19T13:07:04.445664+01:00",
+    "status": "pending",
+    "viral_archetype": 1,
+    "audio_mastered": true
+  },
+  {
+    "id": "efa43730",
+    "source_video_id": "g2loqIUeilY",
+    "source_url": "https://www.youtube.com/watch?v=g2loqIUeilY",
+    "video_path": "C:\\Users\\jafar\\Desktop\\Antigravity\\Princess of Jannah\\media_vault\\aminu_daurawa_efa43730.mp4",
+    "caption": "Darasi mai tsada cikin gajeren lokaci—saurara har karshe.\n\nTare da: Sheikh Aminu Ibrahim Daurawa\nBayani: Abubuwan da Allah Ya jarabci Dan Adam da su | Sheikh Aminu Daurawa\n\nAllah ya saka wa Malam da alkhairi, ya kara masa lafiya. @followers ku tura wa 'yan uwa Musulmi.\n\n#SheikhDaurawa #Tarbiyya #PrincessOfJannah #MalumanSunnah #Karatu #Hadisi #Arewa #Kano #Kaduna",
+    "duration": 25,
+    "scholar": "Sheikh Aminu Ibrahim Daurawa",
+    "scholar_id": "aminu_daurawa",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-23T12:09:18.738975+01:00",
+    "status": "pending"
+  },
+  {
+    "id": "5d35d3ee",
+    "source_video_id": "7yVdggkOO-Q",
+    "source_url": "https://www.youtube.com/watch?v=7yVdggkOO-Q",
+    "video_path": "C:\\Users\\jafar\\Desktop\\Antigravity\\Princess of Jannah\\media_vault\\ahmad_guruntum_5d35d3ee.mp4",
+    "caption": "Wannan bayanin zai warware maka shakka cikin dakika kadan.\n\nMalam: Sheikh Ahmad Tijjani Guruntum\nMaudu'i: Wacece mace ta gari? Sheikh Ahmad Tijjani Guruntum\n\nSaurari cikakken bayani cikin dakika kadan. @followers ku tura wa 'yan uwa domin amfanarwa.\n\n#SheikhGuruntum #Waazi #PrincessOfJannah #Sunnah #Arewa #Hausa #Kano #Kaduna #Abuja #Tafsiri",
+    "duration": 89,
+    "scholar": "Sheikh Ahmad Tijjani Guruntum",
+    "scholar_id": "ahmad_guruntum",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-23T12:12:17.551627+01:00",
+    "status": "pending"
+  }
+]

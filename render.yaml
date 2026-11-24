@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: princess-of-jannah-engine
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: WHATSAPP_ADMIN_GROUP_NAME
+        value: Princess of Jannah Posts
+      - key: PAGE_ID
+        sync: false
+      - key: PAGE_ACCESS_TOKEN
+        sync: false

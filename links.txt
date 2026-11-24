@@ -1,0 +1,5 @@
+# Paste shared video links below (Facebook Reels/Videos, YouTube Shorts, etc.)
+# One link per line. Lines starting with # are ignored.
+# Example:
+# https://www.facebook.com/reel/1234567890/
+# https://youtube.com/shorts/abcdefghijk

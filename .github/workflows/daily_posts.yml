@@ -1,0 +1,68 @@
+name: Princess of Jannah Daily Reels Automation
+
+on:
+  schedule:
+    # Runs 4 times daily in Northern Nigeria time (WAT / UTC+1):
+    # 06:30 AM WAT -> 05:30 UTC
+    # 01:30 PM WAT -> 12:30 UTC
+    # 05:30 PM WAT -> 16:30 UTC
+    # 08:30 PM WAT -> 19:30 UTC
+    - cron: '30 5 * * *'
+    - cron: '30 12 * * *'
+    - cron: '30 16 * * *'
+    - cron: '30 19 * * *'
+  workflow_dispatch:
+    inputs:
+      shared_url:
+        description: 'Optional shared video URL (Facebook, YouTube Shorts, etc.) to queue & post'
+        required: false
+        default: ''
+
+jobs:
+  publish-daily-reel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install System Dependencies (FFmpeg)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Autonomous Short Video Pipeline
+        env:
+          PAGE_ID: ${{ secrets.PAGE_ID }}
+          PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
+          SHARED_URL: ${{ github.event.inputs.shared_url }}
+        run: |
+          if [ -n "$SHARED_URL" ]; then
+            python engine.py add "$SHARED_URL"
+            python engine.py publish
+          else
+            python engine.py auto-post
+          fi
+
+      - name: Persist Queue & History State
+        run: |
+          git config --global user.name "PrincessOfJannah Bot"
+          git config --global user.email "bot@princessofjannah.local"
+          git add data/queue.json data/history.json
+          git commit -m "Auto: Update queue and publication history [skip ci]" || echo "No changes to commit"
+          git push || echo "Push skipped"
