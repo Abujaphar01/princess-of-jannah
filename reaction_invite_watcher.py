@@ -92,8 +92,8 @@ def find_posts_with_uninvited_activity() -> list[dict]:
     pending = []
     for p in live_posts:
         prev = recorded.get(p["id"], {"likes": 0, "comments": 0})
-        prev_likes = int(prev.get("likes", 0))
-        prev_comments = int(prev.get("comments", 0))
+        prev_likes = max(int(prev.get("likes", 0)), int(prev.get("dispatched_likes", 0)))
+        prev_comments = max(int(prev.get("comments", 0)), int(prev.get("dispatched_comments", 0)))
         if p["likes"] > prev_likes or p["comments"] > prev_comments:
             pending.append(
                 {
@@ -197,6 +197,10 @@ def check_and_trigger_instant_invite(cooldown_sec: int = 240) -> dict:
             stderr=subprocess.DEVNULL,
         )
         state["last_dispatch_ts"] = now_ts
+        for p in pending:
+            entry = state["posts"].setdefault(p["id"], {"likes": p["prev_likes"], "comments": p["prev_comments"], "permalink": p["permalink"]})
+            entry["dispatched_likes"] = p["live_likes"]
+            entry["dispatched_comments"] = p["live_comments"]
         save_invited_state(state)
         return {
             "triggered": True,
