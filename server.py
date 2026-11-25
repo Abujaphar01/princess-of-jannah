@@ -28,6 +28,7 @@ from config import (
 from scheduler import auto_post_once, get_queue_status, get_due_or_missed_slot_today
 from whatsapp_pipeline import compute_scheduled_slot_for_queue_position
 from viral_growth import get_adaptive_wat_schedule, fetch_page_analytics
+from reaction_invite_watcher import check_and_trigger_instant_invite
 
 LOG_FILE = "bot.log"
 QR_FILE = "qr_code.txt"
@@ -83,10 +84,31 @@ def background_wat_scheduler():
         time.sleep(25)
 
 
+def background_reaction_invite_watcher():
+    """
+    Polls Meta Graph API every 45 seconds (zero browser/token cost when idle).
+    Immediately dispatches an Antigravity Browser Agent invite sweep the moment
+    a new Like or Comment arrives on any Princess Of Jannah Reel or Post!
+    """
+    append_server_log("Instant Like/Comment Follower-Invite Watcher started (45s real-time Graph API polling).")
+    while True:
+        try:
+            res = check_and_trigger_instant_invite(cooldown_sec=240)
+            if res.get("triggered"):
+                append_server_log(
+                    f"[AUTO-INVITE] Detected +{res.get('new_likes', 0)} new like(s) / +{res.get('new_comments', 0)} comment(s) across {res.get('pending_count')} post(s) -> Dispatched Browser Agent!"
+                )
+        except Exception as e:
+            append_server_log(f"Invite watcher error: {e}")
+        time.sleep(45)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     t = threading.Thread(target=background_wat_scheduler, daemon=True)
     t.start()
+    t_inv = threading.Thread(target=background_reaction_invite_watcher, daemon=True)
+    t_inv.start()
     yield
 
 

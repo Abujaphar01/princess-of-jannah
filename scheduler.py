@@ -58,9 +58,17 @@ def get_queue_status():
 
 def auto_post_once():
     """
-    Ensures the pending queue is stocked (refilling via autonomous discovery if empty),
-    then publishes the next pending short video to Facebook Reels.
+    Syncs latest queue/history from GitHub Cloud first so local and Cloud runners
+    never double-publish, refills queue if empty, then publishes the next Reel.
     """
+    import subprocess
+    from config import BASE_DIR
+
+    try:
+        subprocess.run(["git", "pull", "--rebase", "origin", "main"], cwd=str(BASE_DIR), capture_output=True, timeout=20)
+    except Exception:
+        pass
+
     pending_count = get_queue_status()
     if pending_count == 0:
         print("[*] Pending queue is empty. Running autonomous discovery refill (count=3)...")
