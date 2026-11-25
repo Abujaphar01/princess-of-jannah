@@ -112,6 +112,124 @@ def publish_reel_to_facebook(video_path: str, caption: str):
         raise RuntimeError(f"Failed to publish to Facebook: {vid_res}")
 
 
+def _upload_story_binary(story_file: Path) -> str | None:
+    """
+    Uploads a single MP4 file to /{PAGE_ID}/video_stories using Meta's 3-phase Story API.
+    Returns the Story video_id on success, or None on failure.
+    """
+    init_url = f"{BASE_GRAPH_URL}/{PAGE_ID}/video_stories"
+    init_resp = requests.post(
+        init_url,
+        data={"upload_phase": "start", "access_token": PAGE_ACCESS_TOKEN},
+        timeout=30,
+    ).json()
+
+    if "video_id" not in init_resp or "upload_url" not in init_resp:
+        print(f"[!] Could not initialize Story upload session: {init_resp}")
+        return None
+
+    story_vid_id = init_resp["video_id"]
+    upload_url = init_resp["upload_url"]
+    file_size = os.path.getsize(story_file)
+
+    with open(story_file, "rb") as f:
+        video_bytes = f.read()
+
+    headers = {
+        "Authorization": f"OAuth {PAGE_ACCESS_TOKEN}",
+        "offset": "0",
+        "file_size": str(file_size),
+        "Content-Type": "application/octet-stream",
+    }
+    upload_resp = requests.post(upload_url, headers=headers, data=video_bytes, timeout=300).json()
+    if not upload_resp.get("success", False):
+        print(f"[!] Story binary upload returned non-success: {upload_resp}")
+        return None
+
+    finish_resp = requests.post(
+        init_url,
+        data={
+            "upload_phase": "finish",
+            "video_id": story_vid_id,
+            "video_state": "PUBLISHED",
+            "access_token": PAGE_ACCESS_TOKEN,
+        },
+        timeout=60,
+    ).json()
+
+    if finish_resp.get("success", False) or "post_id" in finish_resp or "id" in finish_resp:
+        print(f"[OK] Successfully shared to Facebook Page Story! Story Video ID: {story_vid_id}")
+        return str(story_vid_id)
+
+    print(f"[!] Story finish phase returned: {finish_resp}")
+    return None
+
+
+def publish_story_to_facebook(video_path: str, duration_sec: int = 0) -> str | None:
+    """
+    Publishes the Reel video to the Facebook Page's Story (/{PAGE_ID}/video_stories).
+    Facebook Stories cap single video clips at 60 seconds; if a Reel exceeds 58s,
+    automatically creates a clean 58s Story cut via FFmpeg so every post shares to Story!
+    """
+    import subprocess
+    from downloader import find_ffmpeg_location
+
+    video_file = Path(video_path)
+    if not video_file.exists():
+        return None
+
+    print(f"[*] Sharing video to Facebook Page Story: {video_file.name} ...")
+    temp_story_file = None
+
+    try:
+        target_for_story = video_file
+        ffmpeg_bin = find_ffmpeg_location()
+
+        # Trim to 58s for Page Story if duration > 58s (or probe if duration_sec == 0)
+        needs_trim = duration_sec > 58
+        if duration_sec == 0 and ffmpeg_bin:
+            import re
+            probe = subprocess.run([ffmpeg_bin, "-i", str(video_file)], capture_output=True, text=True, timeout=15)
+            m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", probe.stderr or "")
+            if m:
+                total_s = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+                needs_trim = total_s > 58
+
+        if needs_trim and ffmpeg_bin:
+            temp_story_file = video_file.with_suffix(".story.mp4")
+            print("[*] Reel is > 58s; creating 58s Story cut for Facebook Page Story...")
+            subprocess.run(
+                [
+                    ffmpeg_bin,
+                    "-y",
+                    "-i",
+                    str(video_file),
+                    "-t",
+                    "58",
+                    "-c",
+                    "copy",
+                    "-movflags",
+                    "+faststart",
+                    str(temp_story_file),
+                ],
+                capture_output=True,
+                timeout=60,
+            )
+            if temp_story_file.exists() and temp_story_file.stat().st_size > 20_000:
+                target_for_story = temp_story_file
+
+        return _upload_story_binary(target_for_story)
+    except Exception as e:
+        print(f"[!] Page Story upload warning (Reel unaffected): {e}")
+        return None
+    finally:
+        if temp_story_file and temp_story_file.exists():
+            try:
+                temp_story_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
 def _ensure_local_video(item: dict) -> str:
     """
     Verifies the queued video file exists locally (cross-OS Windows/Linux safe).
@@ -177,9 +295,11 @@ def publish_next_in_queue():
     try:
         resolved_video_path = _ensure_local_video(item)
         result = publish_reel_to_facebook(resolved_video_path, item["caption"])
+        story_id = publish_story_to_facebook(resolved_video_path, int(item.get("duration") or 0))
         item["status"] = "published"
         item["published_at"] = now_wat().isoformat()
         item["fb_video_id"] = result.get("video_id")
+        item["fb_story_id"] = story_id
         item["fb_type"] = result.get("type")
 
         # Save to history
