@@ -9,7 +9,9 @@ services:
         value: 10000
       - key: WHATSAPP_ADMIN_GROUP_NAME
         value: Princess of Jannah Posts
+      - key: WHATSAPP_ADMIN_GROUP_ID
+        value: 120363413927212088@g.us
       - key: PAGE_ID
-        sync: false
+        value: "1536278762892327"
       - key: PAGE_ACCESS_TOKEN
         sync: false
