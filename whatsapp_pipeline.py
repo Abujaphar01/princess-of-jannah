@@ -19,6 +19,7 @@ from config import (
     MEDIA_DIR,
     POST_TIMES,
     now_wat,
+    pull_state_from_github,
     sync_state_to_github,
 )
 from downloader import (
@@ -124,6 +125,7 @@ def ingest_whatsapp_link(sender_phone: str, source_url: str, extra_text: str = "
     Downloads a shared link sent in 'Princess of Jannah Posts', queues it
     automatically, and formats the WhatsApp confirmation card.
     """
+    pull_state_from_github()
     scholars = load_scholars()
     scholar_override = None
     if extra_text:
@@ -210,6 +212,7 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
             f"⚠️ Ba a sami fayil ɗin bidiyon da aka turo ba."
         )
 
+    pull_state_from_github()
     scholars = load_scholars()
     scholar = match_scholar(raw_caption, scholars)
 
@@ -246,7 +249,7 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
         "id": unique_id,
         "source_video_id": f"wa_{unique_id}",
         "source_url": "whatsapp_direct_upload",
-        "video_path": str(output_path.resolve()),
+        "video_path": f"media_vault/{output_filename}",
         "caption": caption,
         "duration": duration,
         "scholar": scholar["name"] if scholar else "Maluman Sunnah",

@@ -75,6 +75,30 @@ if not HISTORY_FILE.exists():
         json.dump([], f, indent=2)
 
 
+def pull_state_from_github() -> bool:
+    """
+    Pulls latest data/queue.json and data/history.json from GitHub Cloud before
+    appending new items locally so local WhatsApp ingests never conflict with 24/7 Cloud runs.
+    """
+    import subprocess
+
+    try:
+        git_dir = BASE_DIR / ".git"
+        if not git_dir.exists():
+            return False
+        res = subprocess.run(
+            ["git", "pull", "--rebase", "--autostash", "origin", "main"],
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=25,
+        )
+        return res.returncode == 0
+    except Exception as e:
+        print(f"[!] Cloud pull warning: {e}")
+        return False
+
+
 def sync_state_to_github(commit_msg: str = "Auto: Sync queue and history state [skip ci]") -> bool:
     """
     Automatically commits and pushes data/queue.json and data/history.json to GitHub
@@ -90,6 +114,7 @@ def sync_state_to_github(commit_msg: str = "Auto: Sync queue and history state [
         subprocess.run(["git", "add", "data/queue.json", "data/history.json", "media_vault"], cwd=str(BASE_DIR), capture_output=True, timeout=20)
         res = subprocess.run(["git", "commit", "-m", commit_msg], cwd=str(BASE_DIR), capture_output=True, text=True, timeout=15)
         if res.returncode == 0:
+            subprocess.run(["git", "pull", "--rebase", "--autostash", "origin", "main"], cwd=str(BASE_DIR), capture_output=True, timeout=25)
             subprocess.run(["git", "push", "origin", "main"], cwd=str(BASE_DIR), capture_output=True, timeout=30)
             print("[CLOUD SYNC] Synced queue & history to GitHub Cloud (Abujaphar01/princess-of-jannah).")
             return True

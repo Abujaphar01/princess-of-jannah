@@ -104,8 +104,14 @@ def background_reaction_invite_watcher():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    t = threading.Thread(target=background_wat_scheduler, daemon=True)
-    t.start()
+    # GitHub Actions (daily_posts.yml) handles 24/7 cloud WAT scheduled publishing.
+    # Only run local WAT scheduler when explicitly enabled (e.g., standalone cloud container)
+    # to prevent duplicate posts or git conflicts between laptop and GitHub Cloud.
+    if os.environ.get("ENABLE_LOCAL_SCHEDULER", "false").lower() in ("1", "true", "yes"):
+        t = threading.Thread(target=background_wat_scheduler, daemon=True)
+        t.start()
+    else:
+        append_server_log("24/7 Scheduled WAT Auto-Posting delegated to GitHub Cloud (daily_posts.yml) — zero duplicate posts.")
     t_inv = threading.Thread(target=background_reaction_invite_watcher, daemon=True)
     t_inv.start()
     yield
