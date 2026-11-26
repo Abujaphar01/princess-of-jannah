@@ -1,23 +1,23 @@
 """
-Princess of Jannah — Real-Time Facebook Like & Comment Follower-Invite Watcher
-Polls Meta Graph API every 45 seconds (zero browser/token cost when idle).
-The instant any Reel/Post receives a new Like or Comment, automatically dispatches
-an Antigravity Browser Agent session to click 'Invite' on the new reactor/commenter!
+Princess of Jannah — Zero-Token WhatsApp Batch Like-Invite Alert Watcher
+Polls Meta Graph API (0 AI tokens, 0 browser overhead).
+Whenever 10+ new Likes accumulate across published Reels/Posts, automatically sends
+a crisp WhatsApp Batch Alert into 'Princess of Jannah Posts' with direct 1-tap Reel links
+so admins can tap 'Invite' on their phone in 5 seconds!
 """
 
 import argparse
 import json
 import os
-import shutil
-import subprocess
-import time
 import requests
 from config import BASE_DIR, DATA_DIR, PAGE_ID, PAGE_ACCESS_TOKEN, now_wat
 
 INVITED_STATE_FILE = DATA_DIR / "invited_state.json"
+SEND_QUEUE_FILE = BASE_DIR / "send_queue.json"
+GROUP_JID_FILE = BASE_DIR / "matched_group_jid.txt"
+DEFAULT_GROUP_JID = os.environ.get("WHATSAPP_ADMIN_GROUP_ID", "120363413927212088@g.us").strip()
 GRAPH_API_VERSION = "v21.0"
 BASE_GRAPH_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
-AGENTAPI_BIN = shutil.which("agentapi") or r"C:\Users\jafar\.gemini\antigravity\bin\agentapi.BAT"
 
 
 def load_invited_state() -> dict:
@@ -29,7 +29,7 @@ def load_invited_state() -> dict:
                 return data
         except Exception:
             pass
-    return {"posts": {}, "last_dispatch_ts": 0.0}
+    return {"posts": {}}
 
 
 def save_invited_state(state: dict) -> None:
@@ -37,11 +37,18 @@ def save_invited_state(state: dict) -> None:
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 
-def fetch_live_post_counts(limit: int = 20) -> list[dict]:
-    """
-    Fetches live reaction/like and comment counts for recent published posts/reels
-    on Princess Of Jannah via official Meta Graph API.
-    """
+def _get_target_group_jid() -> str:
+    if DEFAULT_GROUP_JID:
+        return DEFAULT_GROUP_JID
+    if GROUP_JID_FILE.exists():
+        try:
+            return GROUP_JID_FILE.read_text(encoding="utf-8").strip()
+        except Exception:
+            pass
+    return "120363413927212088@g.us"
+
+
+def fetch_live_post_counts(limit: int = 25) -> list[dict]:
     if not PAGE_ID or not PAGE_ACCESS_TOKEN:
         return []
 
@@ -81,40 +88,28 @@ def fetch_live_post_counts(limit: int = 20) -> list[dict]:
 
 
 def find_posts_with_uninvited_activity() -> list[dict]:
-    """
-    Compares live Graph API like/comment counts against data/invited_state.json
-    and returns only the posts that have newly arrived likes or comments.
-    """
     state = load_invited_state()
     recorded = state.get("posts", {})
-    live_posts = fetch_live_post_counts(limit=20)
+    live_posts = fetch_live_post_counts(limit=25)
 
     pending = []
     for p in live_posts:
         prev = recorded.get(p["id"], {"likes": 0, "comments": 0})
-        prev_likes = max(int(prev.get("likes", 0)), int(prev.get("dispatched_likes", 0)))
-        prev_comments = max(int(prev.get("comments", 0)), int(prev.get("dispatched_comments", 0)))
-        if p["likes"] > prev_likes or p["comments"] > prev_comments:
+        prev_likes = int(prev.get("likes", 0))
+        if p["likes"] > prev_likes:
             pending.append(
                 {
                     "id": p["id"],
                     "permalink": p["permalink"],
                     "prev_likes": prev_likes,
                     "live_likes": p["likes"],
-                    "new_likes": max(0, p["likes"] - prev_likes),
-                    "prev_comments": prev_comments,
-                    "live_comments": p["comments"],
-                    "new_comments": max(0, p["comments"] - prev_comments),
+                    "new_likes": p["likes"] - prev_likes,
                 }
             )
     return pending
 
 
 def mark_all_current_as_invited() -> dict:
-    """
-    Records current live Graph API like/comment counts into data/invited_state.json
-    after the Browser Agent completes clicking 'Invite' across the page.
-    """
     state = load_invited_state()
     live_posts = fetch_live_post_counts(limit=25)
     for p in live_posts:
@@ -128,104 +123,70 @@ def mark_all_current_as_invited() -> dict:
     return state
 
 
-def build_browser_invite_prompt(pending_posts: list[dict]) -> str:
-    watcher_script = str((BASE_DIR / "reaction_invite_watcher.py").resolve())
-    post_lines = "\n".join(
-        [
-            f"- {p['permalink']} (Post ID `{p['id']}`: +{p['new_likes']} new like(s), +{p['new_comments']} new comment(s); total {p['live_likes']} likes, {p['live_comments']} comments)"
-            for p in pending_posts
-        ]
-    )
-    return (
-        f"New reaction(s)/comment(s) just arrived on the 'Princess Of Jannah' Facebook Page (`https://www.facebook.com/princess.of.jannah.2026/`):\n"
-        f"{post_lines}\n\n"
-        f"Task:\n"
-        f"1. Immediately delegate to the `browser` subagent (Model `flash`) to navigate to `https://www.facebook.com/princess.of.jannah.2026/` "
-        f"(click 'Switch Now' if prompted so you act as the Page 'Princess Of Jannah').\n"
-        f"2. Locate the post(s)/reel(s) above on the timeline, click the reaction count toolbar (`[role=\"toolbar\"][aria-label*=\"See who reacted\"]`) "
-        f"to open the Reactions modal (`[role=\"dialog\"]`), scroll if needed, and click every enabled button whose visible text is `'Invite'` "
-        f"(also invite any uninvited commenters if shown). Do NOT post comments or delete anything.\n"
-        f"3. Once the `browser` subagent confirms all visible uninvited users have been invited, run:\n"
-        f"   `python \"{watcher_script}\" --mark-all-current`\n"
-        f"   so the invited state is updated."
-    )
-
-
-def check_and_trigger_instant_invite(cooldown_sec: int = 240) -> dict:
+def check_and_trigger_instant_invite(min_batch_likes: int = 10, **_kwargs) -> dict:
     """
-    Checks for new likes/comments and dispatches an instant Antigravity Browser Agent
-    session if any uninvited likes/comments exist and cooldown has elapsed.
+    Zero-Token WhatsApp Batch Alert:
+    Checks live Facebook Likes across all Reels. Once 10+ new Likes accumulate,
+    queues a 1-tap WhatsApp alert card into 'Princess of Jannah Posts' and updates
+    the baseline so the next alert fires after the next 10+ new Likes!
     """
     pending = find_posts_with_uninvited_activity()
-    if not pending:
-        return {"triggered": False, "pending_count": 0}
-
-    state = load_invited_state()
-    now_ts = time.time()
-    last_ts = float(state.get("last_dispatch_ts", 0.0))
-
-    if (now_ts - last_ts) < cooldown_sec:
-        return {
-            "triggered": False,
-            "reason": "cooldown_active",
-            "pending_count": len(pending),
-        }
-
-    if not os.path.exists(AGENTAPI_BIN):
-        return {
-            "triggered": False,
-            "reason": f"agentapi not found at {AGENTAPI_BIN}",
-            "pending_count": len(pending),
-        }
-
-    prompt = build_browser_invite_prompt(pending)
     total_new_likes = sum(p["new_likes"] for p in pending)
-    total_new_comments = sum(p["new_comments"] for p in pending)
-    title = f"Auto-Invite Follower (+{total_new_likes}L / +{total_new_comments}C)"
 
-    try:
-        subprocess.Popen(
-            [
-                AGENTAPI_BIN,
-                "new-conversation",
-                "--model=flash",
-                f"--title={title}",
-                prompt,
-            ],
-            cwd=str(BASE_DIR),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        state["last_dispatch_ts"] = now_ts
-        for p in pending:
-            entry = state["posts"].setdefault(p["id"], {"likes": p["prev_likes"], "comments": p["prev_comments"], "permalink": p["permalink"]})
-            entry["dispatched_likes"] = p["live_likes"]
-            entry["dispatched_comments"] = p["live_comments"]
-        save_invited_state(state)
+    if total_new_likes < min_batch_likes:
         return {
-            "triggered": True,
-            "pending_count": len(pending),
-            "new_likes": total_new_likes,
-            "new_comments": total_new_comments,
-            "posts": pending,
+            "triggered": False,
+            "new_likes_accumulated": total_new_likes,
+            "threshold": min_batch_likes,
         }
-    except Exception as e:
-        return {"triggered": False, "reason": str(e), "pending_count": len(pending)}
+
+    lines = [
+        f"*PRINCESS OF JANNAH — SABBIN LIKES (+{total_new_likes})*",
+        "",
+        f"Alhamdulillah! An samu sabbin Likes *{total_new_likes}* a kan Reels dinka.",
+        "Danna kowane link a kasa ka taba *Reactions -> Invite* domin gayyatarsu su biyo shafin:",
+        "",
+    ]
+    for idx, p in enumerate(pending, 1):
+        lines.append(f"{idx}. *+{p['new_likes']} sabbin Likes* (Jimilla: {p['live_likes']})\n   🔗 {p['permalink']}")
+
+    card_text = "\n".join(lines)
+    target_jid = _get_target_group_jid()
+
+    current_q = []
+    if SEND_QUEUE_FILE.exists():
+        try:
+            current_q = json.loads(SEND_QUEUE_FILE.read_text(encoding="utf-8"))
+            if not isinstance(current_q, list):
+                current_q = []
+        except Exception:
+            current_q = []
+
+    current_q.append({"to": target_jid, "text": card_text})
+    SEND_QUEUE_FILE.write_text(json.dumps(current_q, ensure_ascii=False), encoding="utf-8")
+
+    mark_all_current_as_invited()
+    return {
+        "triggered": True,
+        "new_likes": total_new_likes,
+        "pending_count": len(pending),
+    }
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Princess of Jannah Instant Like/Comment Follower Inviter")
-    parser.add_argument("--check", action="store_true", help="Check for new uninvited likes/comments")
-    parser.add_argument("--mark-all-current", action="store_true", help="Mark all current likes/comments as invited")
-    parser.add_argument("--trigger-now", action="store_true", help="Check and trigger Browser Agent invite sweep if needed")
+    parser = argparse.ArgumentParser(description="Princess of Jannah Zero-Token WhatsApp Batch Like Alert")
+    parser.add_argument("--check", action="store_true", help="Check accumulated uninvited likes")
+    parser.add_argument("--mark-all-current", action="store_true", help="Mark all current likes as invited")
+    parser.add_argument("--threshold", type=int, default=10, help="Minimum new likes to trigger WhatsApp batch alert")
     args = parser.parse_args()
 
     if args.mark_all_current:
         st = mark_all_current_as_invited()
         print(f"[OK] Recorded current invited counts across {len(st.get('posts', {}))} posts.")
-    elif args.trigger_now:
-        res = check_and_trigger_instant_invite(cooldown_sec=60)
-        print(json.dumps(res, indent=2))
-    else:
+    elif args.check:
         pending_list = find_posts_with_uninvited_activity()
-        print(json.dumps({"pending_count": len(pending_list), "pending": pending_list}, indent=2))
+        total = sum(x["new_likes"] for x in pending_list)
+        print(json.dumps({"new_likes_accumulated": total, "threshold": args.threshold, "posts": pending_list}, indent=2))
+    else:
+        res = check_and_trigger_instant_invite(min_batch_likes=args.threshold)
+        print(json.dumps(res, indent=2))

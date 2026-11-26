@@ -86,21 +86,20 @@ def background_wat_scheduler():
 
 def background_reaction_invite_watcher():
     """
-    Polls Meta Graph API every 45 seconds (zero browser/token cost when idle).
-    Immediately dispatches an Antigravity Browser Agent invite sweep the moment
-    a new Like or Comment arrives on any Princess Of Jannah Reel or Post!
+    Zero-Token WhatsApp Batch Like-Invite Watcher (polls Meta Graph API every 3 minutes).
+    Whenever 10+ new Likes accumulate across Reels, sends a 1-tap WhatsApp alert card!
     """
-    append_server_log("Instant Like/Comment Follower-Invite Watcher started (45s real-time Graph API polling).")
+    append_server_log("Zero-Token WhatsApp Batch Like-Invite Watcher started (alerts at 10+ new Likes).")
     while True:
         try:
-            res = check_and_trigger_instant_invite(cooldown_sec=240)
+            res = check_and_trigger_instant_invite(min_batch_likes=10)
             if res.get("triggered"):
                 append_server_log(
-                    f"[AUTO-INVITE] Detected +{res.get('new_likes', 0)} new like(s) / +{res.get('new_comments', 0)} comment(s) across {res.get('pending_count')} post(s) -> Dispatched Browser Agent!"
+                    f"[BATCH-INVITE ALERT] +{res.get('new_likes', 0)} new Likes across {res.get('pending_count')} Reel(s) -> Queued WhatsApp alert!"
                 )
         except Exception as e:
             append_server_log(f"Invite watcher error: {e}")
-        time.sleep(45)
+        time.sleep(180)
 
 
 @asynccontextmanager
