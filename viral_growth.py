@@ -237,7 +237,8 @@ def build_viral_caption(
     except Exception:
         recent_count = int(time.time() // 60)
 
-    style_idx = (archetype_index if archetype_index is not None else recent_count) % 6
+    style_seed = archetype_index if archetype_index is not None else recent_count
+    style_idx = style_seed % 6
 
     topic = clean_raw_title(raw_title, scholar)
     if topic and topic[-1] not in ".?!":
@@ -249,11 +250,12 @@ def build_viral_caption(
     is_deceased = "rahimahullah" in raw_name.lower()
     display_name = re.sub(r"\s*\(rahimahullah\)\s*", "", raw_name, flags=re.IGNORECASE).strip()
 
+    dua_seed = style_seed * 3 + sum(ord(c) for c in topic[:20])
     if is_deceased:
-        dua = DECEASED_SCHOLAR_DUAS[recent_count % len(DECEASED_SCHOLAR_DUAS)]
+        dua = DECEASED_SCHOLAR_DUAS[dua_seed % len(DECEASED_SCHOLAR_DUAS)]
         scholar_ref = f"Marigayi {display_name}"
     else:
-        dua = LIVING_SCHOLAR_DUAS[recent_count % len(LIVING_SCHOLAR_DUAS)]
+        dua = LIVING_SCHOLAR_DUAS[dua_seed % len(LIVING_SCHOLAR_DUAS)]
         scholar_ref = display_name
 
     if style_idx == 0:
