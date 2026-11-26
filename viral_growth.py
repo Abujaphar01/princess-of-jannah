@@ -31,41 +31,29 @@ GRAPH_API_VERSION = "v21.0"
 BASE_GRAPH_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 # =====================================================================
-# 1. CATEGORIZED HAUSA & SUNNAH VIRAL HOOK LIBRARY
+# 1. NATURAL HUMAN HAUSA CAPTION ENGINE (ZERO ROBOTIC / AI PHRASING)
 # =====================================================================
 
-HOOK_BANK = {
-    0: [  # Archetype 0: Urgent Fiqh & Sunnah Curiosity
-        "Shin ka san hukuncin wannan mas'alar a koyarwar Sunnah?",
-        "Amsa mai gamsarwa kan tambayar da take damun mutane da yawa.",
-        "Wannan bayanin zai warware maka shakka cikin dakika kadan.",
-        "Abu mai muhimmanci da kowane Musulmi ya kamata ya sani.",
-    ],
-    1: [  # Archetype 1: Heart-Softening Reminder & Solace
-        "Nasiha mai ratsa zuciya wadda za ta kara maka natsuwa.",
-        "Tsaya na dakika daya ka saurari wannan tunatarwar mai girma.",
-        "Magana mai taba zuciya daga bakin babban malami.",
-        "Idan zuciyarka tana neman natsuwa, saurari wannan bayanin.",
-    ],
-    2: [  # Archetype 2: Common Mistake Correction & Ibadah
-        "Kuskuren da mutane da yawa suke tafkawa ba tare da sun sani ba.",
-        "Hukunci mai muhimmanci wanda bai kamata Musulmi ya jahilta ba.",
-        "Gyara ibadarka: Saurari yadda Annabi (SAW) ya koyar da wannan.",
-        "Kashedi mai karfi tare da hujja daga Al-Qur'ani da Sunnah.",
-    ],
-    3: [  # Archetype 3: Timeless Scholarly Legacy & Sadaqatul Jariyah
-        "Ilimi mai amfani: Sadaqatul Jariyah ga duk wanda ya saurara kuma ya yada.",
-        "Gundarin ilimi da hikima daga maluman Sunnah na Arewa.",
-        "Darasi mai tsada cikin gajeren lokaci—saurara har karshe.",
-        "Taskar maluman Sunnah: Karatu mai cike da hujjoji.",
-    ],
-}
+LIVING_SCHOLAR_DUAS = [
+    "Allah ya saka da alkhairi, ya kara lafiya.",
+    "Allah ya kara wa Malam lafiya da nisan kwana mai albarka.",
+    "Allah ya sa mu dace, ya amfane mu da abin da muka saurara.",
+    "Allah ya saka wa Malam da alkhairi, ya sa mu amfana.",
+    "Allah ya ba mu ikon aiki da abin da muka ji.",
+    "Allah ya kara mana ilimi mai amfani da ikhlasi.",
+]
 
-AREWA_TAG_CLUSTERS = [
-    "#PrincessOfJannah #Sunnah #Arewa #Hausa #Kano #Kaduna #Abuja #Tafsiri",
-    "#PrincessOfJannah #Waazi #HausaIslam #Arewa #Zaria #Maiduguri #Katsina #Sokoto",
-    "#PrincessOfJannah #Fiqhu #Aqidah #Sunnah #Arewa #Bauchi #NigeriaMuslims",
-    "#PrincessOfJannah #MalumanSunnah #Karatu #Hadisi #Arewa #Kano #Kaduna",
+DECEASED_SCHOLAR_DUAS = [
+    "Allah ya jikan sa da rahama, ya gafarta masa.",
+    "Allah ya kai haske kabarinsa, ya saka masa da Aljannah.",
+    "Allah ya jikan Malam da rahama, ya sa mu amfana da iliminsa.",
+    "Allah ya gafarta masa, ya hada mu a Aljannatul Firdaus.",
+]
+
+SCHOLAR_STRIP_PATTERNS = [
+    r"\b(?:marigayi|sheikh|shaikh|prof\.?|professor|dr\.?|malam|mal\.?|ustaz|alhaji)\b",
+    r"\brahimahullah(?:u)?\b",
+    r"\bhafizahullah(?:u)?\b",
 ]
 
 
@@ -80,47 +68,128 @@ def _find_ffmpeg_exe() -> str | None:
         return None
 
 
+def topic_fingerprint(text: str) -> str:
+    """
+    Produces a normalized fingerprint of a video's core Hausa topic (stripping scholar names,
+    hashtags, punctuation, and boilerplate words) to detect duplicate clips across channels.
+    """
+    if not text:
+        return ""
+    first_chunk = text.strip().split("\n\n")[0]
+    lowered = re.sub(r"https?://\S+|#\S+", " ", first_chunk.lower())
+    lowered = re.sub(r"\[\[.*?\]\]|\[.*?\]", " ", lowered)
+    noise_words = {
+        "sheikh", "shaikh", "prof", "professor", "dr", "malam", "mal", "marigayi",
+        "rahimahullah", "rahimahullahu", "jaafar", "jafar", "mahmud", "adam", "kano",
+        "albani", "albaniy", "zaria", "zariya", "auwal", "muhammad", "sani", "umar",
+        "rijiyar", "lemo", "aminu", "ibrahim", "daurawa", "ahmad", "tijjani", "guruntum",
+        "isa", "ali", "pantami", "mansur", "yelwa", "abdallah", "abdullahi", "usman",
+        "gadon", "kaya", "abu", "haitham", "haisam", "khamis", "sadis", "jamil", "jameel",
+        "shorts", "short", "waazi", "nasiha", "karatu", "darasi", "bayani", "maudui",
+        "tare", "daga", "bakin", "kan",
+    }
+    tokens = [t for t in re.findall(r"[a-z0-9']+", lowered) if len(t) > 2 and t not in noise_words]
+    return " ".join(tokens[:8])
+
+
+def _smart_sentence_case(text: str) -> str:
+    """
+    Converts ALL-CAPS YouTube titles into natural human sentence casing
+    while keeping normal mixed-case titles intact.
+    """
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return text
+    upper_ratio = sum(1 for c in letters if c.isupper()) / len(letters)
+    if upper_ratio > 0.65:
+        lowered = text.lower()
+        return lowered[:1].upper() + lowered[1:]
+    return text
+
+
 def clean_raw_title(raw_title: str, scholar: dict | None = None) -> str:
     """
-    Cleans raw YouTube/social media titles by stripping noise (#shorts, file codes, URLs)
-    and upgrading overly generic titles into clear Hausa topic descriptions.
+    Cleans raw YouTube/social titles so they read like a real human wrote them:
+    - Removes [[brackets]], || channel suffixes, URLs, #hashtags, em-dashes, and file codes
+    - Removes duplicate mentions of the scholar's name so it never repeats twice
+    - Fixes ALL-CAPS shouting into natural Hausa casing
     """
     if not raw_title:
         raw_title = ""
 
-    # Take first non-empty line before hashtags block
     first_line = raw_title.strip().split("\n")[0].strip()
 
-    # Strip inline hashtags, URLs, and common noise tags
+    # Strip URLs, hashtags, [[...]], [...], and social noise tokens
     cleaned = re.sub(r"https?://\S+", "", first_line)
     cleaned = re.sub(r"#\S+", "", cleaned)
-    cleaned = re.sub(r"\b(shorts|short|tiktok|reels|reel|video|mp4|IMG_\d+|VID_\d+)\b", "", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -_|:,.")
+    cleaned = re.sub(r"\[\[.*?\]\]", " ", cleaned)
+    cleaned = re.sub(r"\[.*?\]", " ", cleaned)
+    cleaned = re.sub(r"[—–]+", " - ", cleaned)
+    cleaned = re.sub(
+        r"\b(shorts|short|tiktok|reels|reel|video|mp4|official|channel|tv|IMG_\d+|VID_\d+)\b",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
 
-    # Check if the remaining title is just the scholar's bare name or too short
-    scholar_name = (scholar or {}).get("name", "")
-    generic_names = [
-        "sheikh jaafar kano",
-        "sheikh jaafar",
-        "jaafar mahmud adam",
-        "albani zaria",
-        "sheikh albani",
-        "aminu daurawa",
-        "pantami",
-        "guruntum",
-        "rijiyar lemo",
-        "mansur isa yelwa",
-        "gadon kaya",
-        "abu haitham",
-        "muhammad sadis",
-    ]
+    # Split on pipe separators (|| or |) and keep the segment that holds the actual topic
+    if "|" in cleaned:
+        parts = [p.strip(" -_:,.") for p in re.split(r"\|+", cleaned) if p.strip(" -_:,.")]
+        if parts:
+            scholar_kws = [k.lower() for k in (scholar or {}).get("keywords", [])]
+            non_name_parts = [
+                p for p in parts
+                if not any(kw in p.lower() for kw in scholar_kws) or len(p.split()) > 5
+            ]
+            cleaned = non_name_parts[0] if non_name_parts else max(parts, key=len)
+
+    # Strip leading or trailing scholar name prefixes/suffixes (e.g. "Sheikh Pantami: ...")
+    if scholar:
+        kws = sorted(scholar.get("keywords", []), key=len, reverse=True)
+        for name_variant in [scholar.get("name", ""), scholar.get("short_name", ""), *kws]:
+            nv = name_variant.strip()
+            if not nv:
+                continue
+            esc = re.escape(nv)
+            cleaned = re.sub(rf"^(?:[\w.\s']*?{esc})\s*[:\-–—]+\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(rf"\s*[:\-–—]+\s*(?:[\w.\s']*?{esc})[\s()a-z]*$", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(rf"\s+{esc}\s*(?:rahimahullah)?\s*$", "", cleaned, flags=re.IGNORECASE)
+
+    for pat in SCHOLAR_STRIP_PATTERNS:
+        cleaned = re.sub(rf"^\s*{pat}\s*[:\-–—]*\s*$", "", cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" -_|:,.")
+    cleaned = _smart_sentence_case(cleaned)
 
     low = cleaned.lower()
-    if len(cleaned) < 12 or low in generic_names or (scholar_name and low == scholar_name.lower()):
-        specialty = (scholar or {}).get("specialty", "Tafsiri da Koyarwar Sunnah")
-        return f"Muhimmin Bayani Kan {specialty}"
+    scholar_name = (scholar or {}).get("name", "").lower()
+    short_name = (scholar or {}).get("short_name", "").lower()
+    scholar_kws = [k.lower() for k in (scholar or {}).get("keywords", [])]
+
+    if (
+        len(cleaned) < 10
+        or low in {scholar_name, short_name, *scholar_kws}
+    ):
+        specialty = (scholar or {}).get("specialty", "Tunatarwa da Nasiha").split(",")[0].strip()
+        return f"Tunatarwa mai amfani kan {specialty.lower()}"
 
     return cleaned
+
+
+def _dedupe_hashtags(tags: list[str], max_tags: int = 4) -> str:
+    seen = set()
+    out = []
+    for raw in tags:
+        for tok in raw.split():
+            if not tok.startswith("#"):
+                continue
+            key = tok.lower()
+            if key not in seen:
+                seen.add(key)
+                out.append(tok)
+            if len(out) >= max_tags:
+                return " ".join(out)
+    return " ".join(out)
 
 
 def build_viral_caption(
@@ -130,89 +199,77 @@ def build_viral_caption(
     archetype_index: int | None = None,
 ) -> str:
     """
-    Builds a high-retention, algorithm-optimized Hausa/Sunnah caption.
-    - If is_shared_link=True and raw_title has content, strictly preserves the shared caption.
-    - If autonomously discovered, packages it into one of 4 Rotating Hausa Viral Archetypes.
+    Builds a warm, natural, 100% human-sounding Hausa caption:
+    - Preserves original captions on user-shared links/videos verbatim.
+    - No robotic labels ('Maudu'i:', 'Kan Maudu'in:', 'Daga bakin:'), no em-dashes,
+      no translated clickbait, no duplicate scholar names, and max 3-4 clean hashtags.
     """
     scholar = scholar or {
         "id": "general_sunnah",
         "name": "Maluman Sunnah",
-        "specialty": "Koyarwar Al-Qur'ani da Sunnah",
-        "hashtags": ["#PrincessOfJannah", "#Sunnah", "#Arewa"],
+        "short_name": "Maluman Sunnah",
+        "specialty": "Sunnah",
+        "hashtags": ["#PrincessOfJannah", "#MalumanSunnah", "#Sunnah"],
     }
 
-    unique_scholar_tags = [
-        t for t in scholar.get("hashtags", []) if t.lower() != "#princessofjannah"
-    ][:2]
-    scholar_tags = " ".join(unique_scholar_tags) if unique_scholar_tags else "#MalumanSunnah"
+    scholar_hashtags = scholar.get("hashtags", [])
+    clean_tags = _dedupe_hashtags(
+        ["#PrincessOfJannah", *scholar_hashtags, "#MalumanSunnah"],
+        max_tags=4,
+    )
 
-    # 1. Preserve original caption on user-shared links
+    # 1. Strictly preserve original human caption on shared links/videos
     if is_shared_link and raw_title and len(raw_title.strip()) > 5:
         clean_shared = raw_title.strip()
         if "#" not in clean_shared:
-            return f"{clean_shared}\n\n{scholar_tags} #PrincessOfJannah #Sunnah #Arewa"
+            return f"{clean_shared}\n\n{clean_tags}"
         return clean_shared
 
-    # 2. Determine rotating archetype index (0..3)
-    if archetype_index is None:
-        try:
-            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
-                q_len = len(json.load(f))
+    # 2. Pick a style index that never repeats recent history/queue posts
+    recent_count = 0
+    try:
+        if HISTORY_FILE.exists():
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                h_len = len(json.load(f))
-            archetype_index = (q_len + h_len) % 4
-        except Exception:
-            archetype_index = int(time.time()) % 4
-    else:
-        archetype_index = archetype_index % 4
+                recent_count += len(json.load(f))
+        if QUEUE_FILE.exists():
+            with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                recent_count += len(json.load(f))
+    except Exception:
+        recent_count = int(time.time() // 60)
+
+    style_idx = (archetype_index if archetype_index is not None else recent_count) % 6
 
     topic = clean_raw_title(raw_title, scholar)
-    scholar_name = scholar.get("name", "Maluman Sunnah")
-    is_deceased = "rahimahullah" in scholar_name.lower()
-    scholar_dua = (
-        "Allah ya ji kan Malam da rahama, ya saka masa da Aljannah."
-        if is_deceased
-        else "Allah ya saka wa Malam da alkhairi, ya kara masa lafiya."
-    )
-
-    hooks = HOOK_BANK[archetype_index]
-    hook = hooks[len(topic) % len(hooks)]
-    cluster_tags = AREWA_TAG_CLUSTERS[archetype_index]
-
-    if archetype_index == 0:
-        caption = (
-            f"{hook}\n\n"
-            f"Malam: {scholar_name}\n"
-            f"Maudu'i: {topic}\n\n"
-            f"Saurari cikakken bayani cikin dakika kadan. @followers ku tura wa 'yan uwa domin amfanarwa.\n\n"
-            f"{scholar_tags} {cluster_tags}"
-        )
-    elif archetype_index == 1:
-        caption = (
-            f"{hook}\n\n"
-            f"Daga bakin: {scholar_name}\n"
-            f"Darasi: {topic}\n\n"
-            f"{scholar_dua} @followers kada ku manta ku yada wannan alkhairin.\n\n"
-            f"{scholar_tags} {cluster_tags}"
-        )
-    elif archetype_index == 2:
-        caption = (
-            f"{hook}\n\n"
-            f"Bayani daga: {scholar_name}\n"
-            f"Kan Maudu'in: {topic}\n\n"
-            f"Ku saurara har karshe domin gyara ibadah. @followers ku yada domin samun ladan sadaqatul jariyah.\n\n"
-            f"{scholar_tags} {cluster_tags}"
-        )
+    if topic and topic[-1] not in ".?!":
+        topic_sentence = f"{topic}."
     else:
-        caption = (
-            f"{hook}\n\n"
-            f"Tare da: {scholar_name}\n"
-            f"Bayani: {topic}\n\n"
-            f"{scholar_dua} @followers ku tura wa 'yan uwa Musulmi.\n\n"
-            f"{scholar_tags} {cluster_tags}"
-        )
+        topic_sentence = topic
 
-    return caption
+    raw_name = scholar.get("name", "Maluman Sunnah")
+    is_deceased = "rahimahullah" in raw_name.lower()
+    display_name = re.sub(r"\s*\(rahimahullah\)\s*", "", raw_name, flags=re.IGNORECASE).strip()
+
+    if is_deceased:
+        dua = DECEASED_SCHOLAR_DUAS[recent_count % len(DECEASED_SCHOLAR_DUAS)]
+        scholar_ref = f"Marigayi {display_name}"
+    else:
+        dua = LIVING_SCHOLAR_DUAS[recent_count % len(LIVING_SCHOLAR_DUAS)]
+        scholar_ref = display_name
+
+    if style_idx == 0:
+        body = f"{topic_sentence}\n\n{scholar_ref}. {dua}"
+    elif style_idx == 1:
+        body = f"{topic_sentence}\n\nTare da {scholar_ref}. {dua}"
+    elif style_idx == 2:
+        body = f"{topic} - {scholar_ref}.\n\n{dua}"
+    elif style_idx == 3:
+        body = f"{topic_sentence}\n\nDaga karatun {scholar_ref}. {dua}"
+    elif style_idx == 4:
+        body = f"{topic_sentence}\n\n{scholar_ref}.\n{dua}"
+    else:
+        body = f"{topic} ({scholar.get('short_name') or scholar_ref}).\n\n{dua}"
+
+    return f"{body}\n\n{clean_tags}"
 
 
 # =====================================================================

@@ -18,6 +18,10 @@ on:
         required: false
         default: ''
 
+concurrency:
+  group: princess-of-jannah-git-state
+  cancel-in-progress: false
+
 jobs:
   publish-daily-reel:
     runs-on: ubuntu-latest
@@ -65,4 +69,5 @@ jobs:
           git config --global user.email "bot@princessofjannah.local"
           git add data/queue.json data/history.json
           git commit -m "Auto: Update queue and publication history [skip ci]" || echo "No changes to commit"
-          git push || echo "Push skipped"
+          git pull --rebase --autostash origin main || true
+          git push origin main || echo "Push skipped"

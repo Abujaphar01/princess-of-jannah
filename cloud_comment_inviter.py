@@ -15,9 +15,11 @@ GRAPH_API_VERSION = "v21.0"
 BASE_GRAPH_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 HAUSA_FOLLOW_REPLIES = [
-    "Allah ya saka da alkhairi! Mungode da ziyartar shafin Princess Of Jannah. Ku danna 'Follow' domin samun gajerun karatuttukan Maluman Sunnah a kullum.",
-    "Ameen ya Rabbi! Allah ya amfane mu baki daya. Kada ku manta ku danna 'Follow' a shafin Princess Of Jannah domin karin fadakarwa a kowace rana.",
-    "Masha'Allah, mungode sosai! Ku biyo shafin Princess Of Jannah (Follow) domin samun ingantattun wa'azuzzukan Maluman Sunnah a kullum.",
+    "Ameen ya Rabbi, mun gode sosai. Allah ya bar zumunci, a danna Follow don ci gaba da samun sabbin wa'azi.",
+    "Allah ya saka da alkhairi, ya sa mu dace baki daya. Kar a manta a biyo shafinmu (Follow).",
+    "Masha Allah, Allah ya amfane mu baki daya. Mun gode sosai, a danna Follow don karin fadakarwa.",
+    "Ameen summa Ameen! Allah ya kara mana imani da ikhlasi. A biyo shafin nan don samun karatu kullum.",
+    "Jazakallahu khairan, Allah ya amfane mu da abin da muka saurara. A danna Follow don samun na gaba in sha Allah.",
 ]
 
 

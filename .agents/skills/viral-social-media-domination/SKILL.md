@@ -47,86 +47,21 @@ ffmpeg -y -i input.mp4 \
 
 ---
 
-## 3. Rotating Hausa & Sunnah Viral Caption Archetypes
+## 3. Natural Human Hausa Copywriting & Anti-Repetition Standard
 
-### Shared Link Rule
-- **Direct Shared Links / Manual Uploads:** If a video is ingested from a shared link with an existing meaningful caption, **preserve that original caption**.
+### Shared Link / Direct Upload Rule
+- **Direct Shared Links / Manual Uploads:** If a video is ingested from a shared link or WhatsApp upload with an existing meaningful caption, **preserve that original human caption verbatim**.
 
-### Autonomously Discovered Clips (4 Rotating Archetypes)
-Raw discovered videos often carry generic titles (`sheikh jaafar kano`, `VID_2026`, `#shorts`). Transform them using 4 distinct rotating archetypes so consecutive daily posts never feel repetitive:
+### Autonomously Discovered Clips (100% Human, Zero Robotic Phrasing)
+Never write stiff, AI-translated clickbait or form-field labels (`Maudu'i:`, `Kan Maudu'in:`, `Daga bakin:`, `Darasi:`), never use AI em-dashes (`—`), never leave raw YouTube brackets/pipes (`[[...]]`, `||`), and never repeat the scholar's name twice in the same caption.
 
-#### Archetype 0: The Urgent Fiqh & Sunnah Question (Curiosity Loop)
-```text
-[Curiosity Hook — e.g., Shin ka san hukuncin wannan mas'alar a Sunnah?]
-
-Malam: [Scholar Name]
-Maudu'i: [Cleaned Topic Title]
-
-Saurari cikakken bayani cikin dakika kadan. @followers ku tura wa 'yan uwa domin amfanarwa.
-
-#[ScholarTag] #PrincessOfJannah #Sunnah #Arewa #Hausa #Kano #Kaduna #Abuja #Tafsiri
-```
-
-#### Archetype 1: Heart-Softening Reminder (Solace & Iman)
-```text
-[Solace Hook — e.g., Tunatarwa mai ratsa zuciya ga kowane Musulmi.]
-
-Daga bakin: [Scholar Name]
-Darasi: [Cleaned Topic Title]
-
-Allah ya datar da mu baki daya. @followers kada ku manta ku yada wannan alkhairin.
-
-#[ScholarTag] #PrincessOfJannah #Waazi #HausaIslam #Arewa #Zaria #Maiduguri #Katsina #Sokoto
-```
-
-#### Archetype 2: Common Mistake Correction (High-Share Value)
-```text
-[Correction Hook — e.g., Kuskuren da mutane da yawa suke yi ba tare da sun ankara ba.]
-
-Bayani daga: [Scholar Name]
-Kan Maudu'in: [Cleaned Topic Title]
-
-Ku saurara har karshe domin gyara ibadah. @followers ku yada domin samun ladan sadaqatul jariyah.
-
-#[ScholarTag] #PrincessOfJannah #Fiqhu #Aqidah #Sunnah #Arewa #Bauchi #NigeriaMuslims
-```
-
-#### Archetype 3: Timeless Scholarly Legacy (Authority & Reverence)
-```text
-[Legacy Hook — e.g., Ilimi mai amfani wanda yake ba zuciya haske.]
-
-Tare da: [Scholar Name]
-Bayani: [Cleaned Topic Title]
-
-[Scholar Du'a: Allah ya ji kan Malam da rahama / Allah ya saka wa Malam da alkhairi]. @followers
-
-#[ScholarTag] #PrincessOfJannah #MalumanSunnah #Karatu #Hadisi #Arewa #Kano #Kaduna
-```
-
----
-
-## 4. Categorized Hausa Viral Hook Library
-
-1. **Curiosity & Fiqh Hooks:**
-   - *"Shin ka san hukuncin wannan mas'alar a koyarwar Sunnah?"*
-   - *"Amsa mai gamsarwa kan tambayar da take damun mutane da yawa."*
-   - *"Wannan bayanin zai warware maka shakka cikin dakika kadan."*
-   - *"Abu mai muhimmanci da kowane Musulmi ya kamata ya sani."*
-2. **Heart-Softening & Solace Hooks:**
-   - *"Nasiha mai ratsa zuciya wadda za ta kara maka natsuwa."*
-   - *"Tsaya na dakika daya ka saurari wannan tunatarwar mai girma."*
-   - *"Magana mai taba zuciya daga bakin babban malami."*
-   - *"Idan zuciyarka tana neman natsuwa, saurari wannan bayanin."*
-3. **Correction & Warning Hooks:**
-   - *"Kuskuren da mutane da yawa suke tafkawa ba tare da sun sani ba."*
-   - *"Hukunci mai muhimmanci wanda bai kamata Musulmi ya jahilta ba."*
-   - *"Kashedi mai karfi tare da hujja daga Al-Qur'ani da Sunnah."*
-   - *"Gyara ibadarka: Saurari yadda Annabi (SAW) ya koyar da wannan."*
-4. **Scholarly Legacy & Sadaqatul Jariyah Hooks:**
-   - *"Ilimi mai amfani: Sadaqatul Jariyah ga duk wanda ya saurara kuma ya yada."*
-   - *"Gundarin ilimi da hikima daga maluman Sunnah na Arewa."*
-   - *"Darasi mai tsada cikin gajeren lokaci—saurara har karshe."*
-   - *"Taskar maluman Sunnah: Karatu mai cike da hujjoji."*
+1. **Lead Directly With the Real Topic:** Clean raw YouTube noise (`[[...]]`, `|| Channel`, `#shorts`, ALL-CAPS shouting, and duplicate scholar names) so the very first line states the real subject naturally in everyday Hausa.
+2. **Natural Attribution & Varied Du'a:** Mention the scholar once (prefixing deceased scholars with `Marigayi` and pairing with rahama du'as; living scholars with varied health/alkhairi du'as) across 6+ natural human phrasing patterns.
+3. **Clean Minimal Hashtags (Max 3–4, Deduplicated):** Keep hashtags concise (`#PrincessOfJannah`, `#ScholarTag`, `#MalumanSunnah`)—never dump 10 city tags or repeat the same hashtag twice.
+4. **Triple-Layer Anti-Repetition Shield:**
+   - Deduplicate at discovery (`discover.py` / `downloader.py`) by `source_video_id`, normalized URL, AND **topic fingerprint** (preventing re-uploads of the same lecture from different YouTube channels).
+   - Verify live `/{PAGE_ID}/published_posts` via Meta Graph API right before upload (`publisher.py`) so an already-live clip can never be uploaded twice.
+   - Enforce GitHub Actions `concurrency` + `git pull --rebase --autostash` before every push so cloud state never drifts.
 
 ---
 

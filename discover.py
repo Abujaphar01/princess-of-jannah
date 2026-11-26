@@ -146,7 +146,7 @@ def discover_short_video_for_scholar(scholar: dict):
                 if not _matches_scholar_keywords(search_blob, scholar):
                     continue
 
-                if is_already_processed(candidate_url, vid_id):
+                if is_already_processed(candidate_url, vid_id, title):
                     continue
 
                 print(f"    [+] Candidate found ({int(duration_val)}s): {title}")

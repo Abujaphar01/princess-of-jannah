@@ -7,7 +7,44 @@ import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
-from config import MEDIA_DIR, QUEUE_FILE, HISTORY_FILE, SCHOLARS_FILE, now_wat
+from config import MEDIA_DIR, QUEUE_FILE, HISTORY_FILE, SCHOLARS_FILE, PAGE_ID, PAGE_ACCESS_TOKEN, now_wat
+
+_LIVE_FB_FP_CACHE = {"ts": 0.0, "fps": set()}
+
+
+def _get_live_facebook_fingerprints() -> set[str]:
+    """
+    Fetches normalized topic fingerprints of the last 25 live posts on the Facebook Page
+    (cached for 10 minutes) so clips already on the page are never re-queued.
+    """
+    import time
+    import requests
+    from viral_growth import topic_fingerprint
+
+    now_ts = time.time()
+    if now_ts - _LIVE_FB_FP_CACHE["ts"] < 600 and _LIVE_FB_FP_CACHE["fps"]:
+        return _LIVE_FB_FP_CACHE["fps"]
+
+    fps = set()
+    if PAGE_ID and PAGE_ACCESS_TOKEN and PAGE_ID != "your_page_id_here":
+        try:
+            r = requests.get(
+                f"https://graph.facebook.com/v21.0/{PAGE_ID}/published_posts",
+                params={"fields": "id,message", "limit": 25, "access_token": PAGE_ACCESS_TOKEN},
+                timeout=12,
+            )
+            if r.status_code == 200:
+                for p in r.json().get("data", []):
+                    msg = p.get("message") or ""
+                    for line in msg.splitlines():
+                        fp = topic_fingerprint(line)
+                        if len(fp) >= 8:
+                            fps.add(fp)
+        except Exception:
+            pass
+    _LIVE_FB_FP_CACHE["ts"] = now_ts
+    _LIVE_FB_FP_CACHE["fps"] = fps
+    return fps
 
 BROWSER_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -128,10 +165,14 @@ def _normalize_url(url: str) -> str:
     return f"{parsed.netloc.lower()}{path}"
 
 
-def is_already_processed(source_url: str, video_id: str) -> bool:
+def is_already_processed(source_url: str, video_id: str, candidate_title: str = "") -> bool:
     """
-    Checks both QUEUE_FILE and HISTORY_FILE so duplicate videos are never queued twice.
+    Checks QUEUE_FILE, HISTORY_FILE, AND live Facebook posts by video ID, URL, and
+    normalized topic fingerprint so the same lecture clip is never queued twice
+    (even when re-uploaded under a different YouTube Short ID).
     """
+    from viral_growth import topic_fingerprint
+
     records = []
     for path in (QUEUE_FILE, HISTORY_FILE):
         if path.exists():
@@ -144,12 +185,26 @@ def is_already_processed(source_url: str, video_id: str) -> bool:
                 pass
 
     norm_url = _normalize_url(source_url)
+    cand_fp = topic_fingerprint(candidate_title) if candidate_title else ""
+
     for item in records:
         if video_id and item.get("source_video_id") == video_id:
             return True
         item_url = _normalize_url(item.get("source_url") or "")
         if norm_url and item_url and norm_url == item_url:
             return True
+        if len(cand_fp) >= 10:
+            existing_cap = item.get("caption") or ""
+            for line in existing_cap.splitlines():
+                ex_fp = topic_fingerprint(line)
+                if len(ex_fp) >= 10 and (cand_fp == ex_fp or cand_fp in ex_fp or ex_fp in cand_fp):
+                    return True
+
+    if len(cand_fp) >= 10:
+        for live_fp in _get_live_facebook_fingerprints():
+            if cand_fp == live_fp or cand_fp in live_fp or live_fp in cand_fp:
+                return True
+
     return False
 
 
@@ -267,7 +322,7 @@ def download_video(url, scholar_override=None, is_shared_link=True, allow_duplic
     webpage_url = meta.get("webpage_url", target_url)
     source_video_id = str(meta.get("id") or "")
 
-    if not allow_duplicate and is_already_processed(webpage_url, source_video_id):
+    if not allow_duplicate and is_already_processed(webpage_url, source_video_id, title):
         print(f"[!] Skipping duplicate video [{source_video_id or webpage_url}] (already queued or published).")
         return None
 
@@ -317,7 +372,7 @@ def download_video(url, scholar_override=None, is_shared_link=True, allow_duplic
         "id": unique_id,
         "source_video_id": source_video_id,
         "source_url": webpage_url,
-        "video_path": str(output_path.resolve()),
+        "video_path": f"media_vault/{output_filename}",
         "caption": caption,
         "duration": duration,
         "scholar": scholar["name"] if scholar else "Authentic Islamic Scholar",

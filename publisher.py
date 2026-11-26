@@ -22,6 +22,57 @@ GRAPH_API_VERSION = "v21.0"
 BASE_GRAPH_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 
+def _find_existing_live_facebook_post(caption: str, source_video_id: str = "") -> str | None:
+    """
+    Live Anti-Repetition Shield:
+    Checks both HISTORY_FILE and live Meta Graph API /{PAGE_ID}/published_posts
+    to verify this video or core topic has NOT already been published on Facebook.
+    Returns the existing Facebook post/video ID if already live, or None otherwise.
+    """
+    from viral_growth import topic_fingerprint
+
+    cand_fps = [
+        topic_fingerprint(line)
+        for line in (caption or "").splitlines()
+        if len(topic_fingerprint(line)) >= 10
+    ]
+
+    if HISTORY_FILE.exists():
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                hist = json.load(f)
+            for h in hist:
+                if source_video_id and h.get("source_video_id") == source_video_id and h.get("status") == "published":
+                    return str(h.get("fb_video_id") or "history_match")
+        except Exception:
+            pass
+
+    if PAGE_ID and PAGE_ACCESS_TOKEN and PAGE_ID != "your_page_id_here":
+        try:
+            r = requests.get(
+                f"{BASE_GRAPH_URL}/{PAGE_ID}/published_posts",
+                params={"fields": "id,message", "limit": 25, "access_token": PAGE_ACCESS_TOKEN},
+                timeout=15,
+            )
+            if r.status_code == 200:
+                for p in r.json().get("data", []):
+                    msg = (p.get("message") or "").strip()
+                    if not msg:
+                        continue
+                    if caption and msg == caption.strip():
+                        return str(p.get("id"))
+                    for line in msg.splitlines():
+                        live_fp = topic_fingerprint(line)
+                        if len(live_fp) >= 10:
+                            for cfp in cand_fps:
+                                if cfp == live_fp or cfp in live_fp or live_fp in cfp:
+                                    return str(p.get("id"))
+        except Exception as e:
+            print(f"[!] Live dedup check warning: {e}")
+
+    return None
+
+
 def publish_reel_to_facebook(video_path: str, caption: str):
     """
     Publishes a video directly as a Facebook Reel using the official Meta Resumable Video Reels API.
@@ -88,7 +139,11 @@ def publish_reel_to_facebook(video_path: str, caption: str):
             else:
                 print(f"[!] Reels finish phase returned non-success: {finish_res}, falling back to standard video post...")
     except Exception as e:
-        print(f"[!] Reels API attempt failed: {e}. Falling back to standard video API...")
+        print(f"[!] Reels API attempt failed: {e}. Checking if Reel already landed on Facebook before fallback...")
+        existing_after_err = _find_existing_live_facebook_post(caption)
+        if existing_after_err:
+            print(f"[DEDUP GUARD] Reel already published despite finish timeout ({existing_after_err}); skipping fallback!")
+            return {"success": True, "video_id": existing_after_err, "type": "reel", "response": {"recovered": True}}
 
     # -------------------------------------------------------------
     # Method B: Fallback to /{page_id}/videos (Standard Video Upload)
@@ -276,18 +331,33 @@ def publish_next_in_queue():
         print("[!] Queue is empty. No videos to publish.")
         return None
 
-    # Get first pending item
-    item_index = None
-    item = None
-    for idx, q in enumerate(queue):
-        if q.get("status") == "pending":
-            item_index = idx
-            item = q
-            break
+    # Get first non-duplicate pending item
+    while True:
+        item_index = None
+        item = None
+        for idx, q in enumerate(queue):
+            if q.get("status") == "pending":
+                item_index = idx
+                item = q
+                break
 
-    if not item:
-        print("[!] No pending videos found in queue.")
-        return None
+        if not item:
+            print("[!] No pending videos found in queue.")
+            return None
+
+        existing_live_id = _find_existing_live_facebook_post(
+            item.get("caption", ""),
+            str(item.get("source_video_id") or ""),
+        )
+        if existing_live_id:
+            print(f"[DEDUP GUARD] Item [{item['id']}] is already live on Facebook ({existing_live_id}). Removing duplicate from queue!")
+            item["status"] = "already_live"
+            item["fb_video_id"] = existing_live_id
+            queue.pop(item_index)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(queue, f, indent=2, ensure_ascii=False)
+            continue
+        break
 
     print(f"\n[>>>] Publishing next item: [{item['id']}] for {item['scholar']}")
     print(f"Caption: {item['caption'][:100]}...")

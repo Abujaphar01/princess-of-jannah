@@ -6,6 +6,10 @@ on:
     - cron: '*/14 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: princess-of-jannah-git-state
+  cancel-in-progress: false
+
 jobs:
   cloud-engagement:
     runs-on: ubuntu-latest
@@ -43,5 +47,6 @@ jobs:
             git config --global user.email "bot@princessofjannah.local"
             git add data/replied_comments.json
             git commit -m "Auto: Update replied comments state [skip ci]" || echo "No new comments"
-            git push || echo "Push skipped"
+            git pull --rebase --autostash origin main || true
+            git push origin main || echo "Push skipped"
           fi

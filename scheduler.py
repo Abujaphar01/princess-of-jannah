@@ -61,13 +61,9 @@ def auto_post_once():
     Syncs latest queue/history from GitHub Cloud first so local and Cloud runners
     never double-publish, refills queue if empty, then publishes the next Reel.
     """
-    import subprocess
-    from config import BASE_DIR
+    from config import pull_state_from_github
 
-    try:
-        subprocess.run(["git", "pull", "--rebase", "origin", "main"], cwd=str(BASE_DIR), capture_output=True, timeout=20)
-    except Exception:
-        pass
+    pull_state_from_github()
 
     pending_count = get_queue_status()
     if pending_count == 0:
