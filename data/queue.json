@@ -68,5 +68,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T07:49:44.223887+01:00",
     "status": "pending"
+  },
+  {
+    "id": "44090bf3",
+    "source_video_id": "W374feiN7lo",
+    "source_url": "https://www.youtube.com/watch?v=W374feiN7lo",
+    "video_path": "media_vault/ahmad_guruntum_44090bf3.mp4",
+    "caption": "Jan kunne ga masu girman kai - Sheikh Ahmad Tijjani Guruntum.\n\nAllah ya saka da alkhairi, ya kara lafiya.\n\n#PrincessOfJannah #SheikhGuruntum #Waazi #GyaranZuciya",
+    "duration": 87,
+    "scholar": "Sheikh Ahmad Tijjani Guruntum",
+    "scholar_id": "ahmad_guruntum",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:06:37.707843+01:00",
+    "status": "pending"
   }
 ]
