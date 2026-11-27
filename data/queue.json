@@ -96,5 +96,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T09:07:40.337905+01:00",
     "status": "pending"
+  },
+  {
+    "id": "e1a15ded",
+    "source_video_id": "u9oadmCmZjw",
+    "source_url": "https://www.youtube.com/watch?v=u9oadmCmZjw",
+    "video_path": "media_vault/mansur_yelwa_e1a15ded.mp4",
+    "caption": "Abdurrahim.\n\nProf. Mansur Isa Yelwa.\nAllah ya saka wa Malam da alkhairi, ya sa mu amfana.\n\n#PrincessOfJannah #MansurYelwa #Fiqhu #HukunceHukunce",
+    "duration": 30,
+    "scholar": "Prof. Mansur Isa Yelwa",
+    "scholar_id": "mansur_yelwa",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:08:17.750442+01:00",
+    "status": "pending"
   }
 ]
