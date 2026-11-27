@@ -261,10 +261,13 @@ def download_media_to_path(url: str, output_path: Path) -> bool:
     ffmpeg_bin = find_ffmpeg_location()
     print(f"[*] Downloading short video to: {output_path}")
 
+    yt_extra = ["--extractor-args", "youtube:player_client=android_vr,tv,web"] if __import__("os").environ.get("GITHUB_ACTIONS") else []
+
     if ffmpeg_bin:
         cmd_dl = [
             "yt-dlp",
             "--no-plugin-dirs",
+            *yt_extra,
             "--ffmpeg-location", ffmpeg_bin,
             "-f", "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[ext=mp4]/best",
             "--merge-output-format", "mp4",
@@ -277,6 +280,7 @@ def download_media_to_path(url: str, output_path: Path) -> bool:
         cmd_dl = [
             "yt-dlp",
             "--no-plugin-dirs",
+            *yt_extra,
             "-f", "best[ext=mp4]/best",
             "-o", str(output_path),
             "--no-playlist",
@@ -300,10 +304,12 @@ def download_video(url, scholar_override=None, is_shared_link=True, allow_duplic
     scholars = load_scholars()
     target_url = resolve_shared_url(url)
 
+    yt_extra = ["--extractor-args", "youtube:player_client=android_vr,tv,web"] if __import__("os").environ.get("GITHUB_ACTIONS") else []
     print(f"[*] Extracting metadata for: {target_url}")
     cmd_meta = [
         "yt-dlp",
         "--no-plugin-dirs",
+        *yt_extra,
         "--dump-json",
         "--no-playlist",
         "--no-warnings",

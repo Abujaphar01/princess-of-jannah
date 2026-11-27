@@ -102,6 +102,36 @@ def background_reaction_invite_watcher():
         time.sleep(180)
 
 
+def background_cloud_queue_refiller(min_buffer: int = 8, target_buffer: int = 12):
+    """
+    Zero-Token Cloud Buffer Maintainer:
+    GitHub Actions datacenter IPs get bot-blocked by YouTube when data/queue.json runs empty.
+    Whenever pending queue drops below `min_buffer`, this thread discovers fresh clips across
+    all 10 scholars using the local residential connection, masters audio + humanized Hausa
+    captions, and pushes the MP4s + queue.json to GitHub Cloud — WITHOUT publishing locally,
+    so GitHub Cloud (daily_posts.yml) remains the single publisher with zero duplicates!
+    """
+    from config import pull_state_from_github, sync_state_to_github
+    from discover import discover_and_refill
+
+    append_server_log(f"Cloud Queue Buffer Maintainer started (keeps {min_buffer}-{target_buffer} mastered Reels ready in GitHub Cloud).")
+    time.sleep(15)
+    while True:
+        try:
+            pull_state_from_github()
+            pending = get_queue_status()
+            if pending < min_buffer:
+                needed = max(1, target_buffer - pending)
+                append_server_log(f"[CLOUD BUFFER] Queue has {pending} video(s) (< {min_buffer}). Pre-fetching {needed} fresh scholar Reels for GitHub Cloud...")
+                added = discover_and_refill(count=needed)
+                if added:
+                    sync_state_to_github(f"Auto: Top up cloud queue buffer (+{len(added)} Reels) [skip ci]")
+                    append_server_log(f"[CLOUD BUFFER] Stocked +{len(added)} mastered Reels to GitHub Cloud (total pending: {get_queue_status()}).")
+        except Exception as e:
+            append_server_log(f"Cloud buffer error: {e}")
+        time.sleep(1800)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # GitHub Actions (daily_posts.yml) handles 24/7 cloud WAT scheduled publishing.
@@ -112,6 +142,8 @@ async def lifespan(app: FastAPI):
         t.start()
     else:
         append_server_log("24/7 Scheduled WAT Auto-Posting delegated to GitHub Cloud (daily_posts.yml) — zero duplicate posts.")
+        t_buf = threading.Thread(target=background_cloud_queue_refiller, daemon=True)
+        t_buf.start()
     t_inv = threading.Thread(target=background_reaction_invite_watcher, daemon=True)
     t_inv.start()
     yield
