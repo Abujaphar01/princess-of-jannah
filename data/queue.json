@@ -26,5 +26,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T07:41:47.869352+01:00",
     "status": "pending"
+  },
+  {
+    "id": "a8e57f2f",
+    "source_video_id": "5JQps0cZjaA",
+    "source_url": "https://www.youtube.com/watch?v=5JQps0cZjaA",
+    "video_path": "media_vault/jaafar_mahmud_adam_a8e57f2f.mp4",
+    "caption": "Bayani Akan Maulidi.\n\nMarigayi Sheikh Ja'afar Mahmud Adam.\nAllah ya jikan Malam da rahama, ya sa mu amfana da iliminsa.\n\n#PrincessOfJannah #SheikhJaafar #Sunnah #HausaIslam",
+    "duration": 42,
+    "scholar": "Sheikh Ja'afar Mahmud Adam (Rahimahullah)",
+    "scholar_id": "jaafar_mahmud_adam",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T07:43:16.621176+01:00",
+    "status": "pending"
   }
 ]
