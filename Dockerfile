@@ -1,13 +1,15 @@
 # Dockerfile for Princess of Jannah 24/7 Cloud Production Engine
 FROM python:3.11-slim
 
-# Install system dependencies (FFmpeg for video merging, curl, git, Node.js, npm)
+# Install system dependencies (FFmpeg for video mastering, curl, git, ca-certificates, Node.js 22 LTS for Baileys v7)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     git \
-    nodejs \
-    npm \
+    ca-certificates \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
