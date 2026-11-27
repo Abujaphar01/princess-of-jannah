@@ -331,26 +331,24 @@ def publish_next_in_queue():
         print("[!] Queue is empty. No videos to publish.")
         return None
 
-    # Get first non-duplicate WhatsApp-submitted pending item (`is_shared_link == True`)
+    # Priority Rule: Always pick WhatsApp-shared items (`is_shared_link == True`) FIRST.
+    # Only pick a non-WhatsApp fallback item if there are ZERO pending WhatsApp items in the queue.
     while True:
-        item_index = None
-        item = None
-        for idx, q in enumerate(queue):
-            if q.get("status") == "pending":
-                item_index = idx
-                item = q
-                break
+        pending_whatsapp = [
+            (idx, q) for idx, q in enumerate(queue)
+            if q.get("status") == "pending" and q.get("is_shared_link", False)
+        ]
+        pending_fallback = [
+            (idx, q) for idx, q in enumerate(queue)
+            if q.get("status") == "pending" and not q.get("is_shared_link", False)
+        ]
 
-        if not item:
-            print("[!] No pending WhatsApp videos found in queue.")
+        chosen_list = pending_whatsapp if pending_whatsapp else pending_fallback
+        if not chosen_list:
+            print("[!] No pending videos found in queue.")
             return None
 
-        if not item.get("is_shared_link", False):
-            print(f"[WHATSAPP-ONLY GUARD] Dropping non-WhatsApp auto-discovered item [{item.get('id')}] from queue.")
-            queue.pop(item_index)
-            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-                json.dump(queue, f, indent=2, ensure_ascii=False)
-            continue
+        item_index, item = chosen_list[0]
 
         existing_live_id = _find_existing_live_facebook_post(
             item.get("caption", ""),

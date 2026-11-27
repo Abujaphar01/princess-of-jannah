@@ -102,15 +102,51 @@ def background_reaction_invite_watcher():
         time.sleep(180)
 
 
+def background_fallback_reserve_maintainer(target_fallback: int = 4):
+    """
+    Keeps a small silent reserve of `target_fallback` (4 = 1 day) pre-mastered fallback Reels
+    at the BACK of data/queue.json so GitHub Cloud never fails on YouTube bot-blocks if no
+    WhatsApp content is in the queue when your PC is off.
+    WhatsApp items ALWAYS jump ahead to VIP #1 and publish first!
+    """
+    from config import pull_state_from_github, sync_state_to_github
+    from discover import discover_and_refill
+
+    append_server_log(f"WhatsApp-First + Fallback Reserve Maintainer active (keeps {target_fallback} fallback clips behind WhatsApp items).")
+    time.sleep(10)
+    while True:
+        try:
+            pull_state_from_github()
+            try:
+                with open(QUEUE_FILE, "r", encoding="utf-8") as f:
+                    q = json.load(f)
+            except Exception:
+                q = []
+            wa_pending = [x for x in q if x.get("status") == "pending" and x.get("is_shared_link")]
+            fb_pending = [x for x in q if x.get("status") == "pending" and not x.get("is_shared_link")]
+            # Only top up fallback reserve when WhatsApp queue is empty and fallback < target_fallback
+            if len(wa_pending) == 0 and len(fb_pending) < target_fallback:
+                needed = target_fallback - len(fb_pending)
+                append_server_log(f"[FALLBACK RESERVE] 0 WhatsApp items waiting; stocking {needed} fallback Reel(s) for GitHub Cloud...")
+                added = discover_and_refill(count=needed)
+                if added:
+                    sync_state_to_github(f"Auto: Stock {len(added)} fallback Reel(s) for empty-queue slots [skip ci]")
+        except Exception as e:
+            append_server_log(f"Fallback reserve error: {e}")
+        time.sleep(1800)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 100% WhatsApp-Only Mode: Only videos/links sent in the WhatsApp group are ever queued or published.
-    # GitHub Actions (daily_posts.yml) publishes queued WhatsApp items at the daily WAT slots.
+    # WhatsApp-First + Non-WhatsApp Fallback Mode:
+    # GitHub Actions (daily_posts.yml) is the single scheduled publisher (zero duplicates).
     if os.environ.get("ENABLE_LOCAL_SCHEDULER", "false").lower() in ("1", "true", "yes"):
         t = threading.Thread(target=background_wat_scheduler, daemon=True)
         t.start()
     else:
-        append_server_log("100% WhatsApp-Only Mode active — auto-discovery OFF; only WhatsApp group links & videos will ever post.")
+        append_server_log("WhatsApp-First Mode active — WhatsApp posts ALWAYS go first; non-WhatsApp fallback posts ONLY when WhatsApp queue is empty.")
+        t_fb = threading.Thread(target=background_fallback_reserve_maintainer, daemon=True)
+        t_fb.start()
     t_inv = threading.Thread(target=background_reaction_invite_watcher, daemon=True)
     t_inv.start()
     yield
@@ -365,7 +401,7 @@ def view_queue():
         """
 
     if not rows:
-        rows = "<tr><td colspan='5' style='padding:20px; text-align:center; color:#94a3b8;'>Queue is empty — waiting for videos or links from the WhatsApp group (100% WhatsApp-Only Mode).</td></tr>"
+        rows = "<tr><td colspan='5' style='padding:20px; text-align:center; color:#94a3b8;'>Queue is empty — WhatsApp links &amp; videos always publish FIRST; fallback scholar clips post only when no WhatsApp content is waiting.</td></tr>"
 
     return f"""
     <!DOCTYPE html>

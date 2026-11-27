@@ -280,6 +280,32 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
         )
 
     pull_state_from_github()
+
+    # Deduplicate direct WhatsApp video uploads by raw file SHA-256 and caption topic fingerprint
+    import hashlib
+    from viral_growth import topic_fingerprint
+
+    raw_sha256 = hashlib.sha256(src_path.read_bytes()).hexdigest()
+    cap_fp = topic_fingerprint(raw_caption) if raw_caption else ""
+    for existing in (_load_queue() + _load_history()):
+        if existing.get("file_sha256") == raw_sha256:
+            src_path.unlink(missing_ok=True)
+            return (
+                f"*PRINCESS OF JANNAH*\n\n"
+                f"Assalamu Alaikum {sender_phone},\n"
+                f"⚠️ An riga an karɓi ko an wallafa wannan bidiyon a baya (`#{existing.get('id')}`) — an tsallake shi don kauce wa maimaitawa."
+            )
+        if len(cap_fp) >= 12:
+            for line in (existing.get("caption") or "").splitlines():
+                ex_fp = topic_fingerprint(line)
+                if len(ex_fp) >= 12 and (cap_fp == ex_fp or cap_fp in ex_fp or ex_fp in cap_fp):
+                    src_path.unlink(missing_ok=True)
+                    return (
+                        f"*PRINCESS OF JANNAH*\n\n"
+                        f"Assalamu Alaikum {sender_phone},\n"
+                        f"⚠️ An riga an dora bidiyo mai wannan maudu'in a baya (`#{existing.get('id')}`) — an tsallake shi don kauce wa maimaitawa."
+                    )
+
     scholars = load_scholars()
     scholar = match_scholar(raw_caption, scholars)
 
@@ -315,6 +341,7 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
     item = {
         "id": unique_id,
         "source_video_id": f"wa_{unique_id}",
+        "file_sha256": raw_sha256,
         "source_url": "whatsapp_direct_upload",
         "video_path": f"media_vault/{output_filename}",
         "caption": caption,
