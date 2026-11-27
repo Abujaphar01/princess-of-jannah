@@ -119,9 +119,10 @@ def clean_raw_title(raw_title: str, scholar: dict | None = None) -> str:
 
     first_line = raw_title.strip().split("\n")[0].strip()
 
-    # Strip URLs, hashtags, [[...]], [...], and social noise tokens
+    # Strip URLs, hashtags, @handles, [[...]], [...], and social noise tokens
     cleaned = re.sub(r"https?://\S+", "", first_line)
     cleaned = re.sub(r"#\S+", "", cleaned)
+    cleaned = re.sub(r"@\S+(?:\s+azumi)?", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\[\[.*?\]\]", " ", cleaned)
     cleaned = re.sub(r"\[.*?\]", " ", cleaned)
     cleaned = re.sub(r"[—–]+", " - ", cleaned)
@@ -132,9 +133,9 @@ def clean_raw_title(raw_title: str, scholar: dict | None = None) -> str:
         flags=re.IGNORECASE,
     )
 
-    # Split on pipe separators (|| or |) and keep the segment that holds the actual topic
-    if "|" in cleaned:
-        parts = [p.strip(" -_:,.") for p in re.split(r"\|+", cleaned) if p.strip(" -_:,.")]
+    # Split on pipe or double-slash separators (||, |, //) and keep the segment with the actual topic
+    if "|" in cleaned or "//" in cleaned:
+        parts = [p.strip(" -_:,.") for p in re.split(r"\|+|//+", cleaned) if p.strip(" -_:,.")]
         if parts:
             scholar_kws = [k.lower() for k in (scholar or {}).get("keywords", [])]
             non_name_parts = [
@@ -143,7 +144,7 @@ def clean_raw_title(raw_title: str, scholar: dict | None = None) -> str:
             ]
             cleaned = non_name_parts[0] if non_name_parts else max(parts, key=len)
 
-    # Strip leading or trailing scholar name prefixes/suffixes (e.g. "Sheikh Pantami: ...")
+    # Strip leading or trailing scholar name prefixes/suffixes (e.g. "Sheikh Pantami: ..." or "... tare da Malam X")
     if scholar:
         kws = sorted(scholar.get("keywords", []), key=len, reverse=True)
         for name_variant in [scholar.get("name", ""), scholar.get("short_name", ""), *kws]:
@@ -152,8 +153,16 @@ def clean_raw_title(raw_title: str, scholar: dict | None = None) -> str:
                 continue
             esc = re.escape(nv)
             cleaned = re.sub(rf"^(?:[\w.\s']*?{esc})\s*[:\-–—]+\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(rf"\s+(?:tare\s+da\s+|daga\s+)?(?:(?:sheikh|shaikh|prof\.?|dr\.?|malam|mal\.?|marigayi)\s+)*{esc}[\s()a-z]*$", "", cleaned, flags=re.IGNORECASE)
             cleaned = re.sub(rf"\s*[:\-–—]+\s*(?:[\w.\s']*?{esc})[\s()a-z]*$", "", cleaned, flags=re.IGNORECASE)
-            cleaned = re.sub(rf"\s+{esc}\s*(?:rahimahullah)?\s*$", "", cleaned, flags=re.IGNORECASE)
+
+    # Strip any dangling honorifics left at the very end (e.g. "Hukuncin maita Dr.")
+    cleaned = re.sub(
+        r"\s+(?:tare\s+da|daga|by)?\s*(?:marigayi|sheikh|shaikh|prof\.?|professor|dr\.?|malam|mal\.?|ustaz|hafizahullah|rahimahullah)\.?\s*$",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
 
     for pat in SCHOLAR_STRIP_PATTERNS:
         cleaned = re.sub(rf"^\s*{pat}\s*[:\-–—]*\s*$", "", cleaned, flags=re.IGNORECASE)
