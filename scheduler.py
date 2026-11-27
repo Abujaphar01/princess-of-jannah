@@ -58,8 +58,10 @@ def get_queue_status():
 
 def auto_post_once():
     """
-    Syncs latest queue/history from GitHub Cloud first so local and Cloud runners
-    never double-publish, refills queue if empty, then publishes the next Reel.
+    100% WhatsApp-Only Mode:
+    Syncs latest queue/history from GitHub Cloud first, and ONLY publishes videos/links
+    that were explicitly submitted from the WhatsApp group (`is_shared_link=True`).
+    Never auto-discovers non-WhatsApp videos when the queue is empty.
     """
     from config import pull_state_from_github
 
@@ -67,12 +69,7 @@ def auto_post_once():
 
     pending_count = get_queue_status()
     if pending_count == 0:
-        print("[*] Pending queue is empty. Running autonomous discovery refill (count=3)...")
-        discover_and_refill(count=3)
-        pending_count = get_queue_status()
-
-    if pending_count == 0:
-        print("[!] Unable to discover any new pending videos right now.")
+        print("[*] WhatsApp queue is empty (100% WhatsApp-Only Mode). Waiting for links/videos from WhatsApp.")
         return None
 
     return publish_next_in_queue()

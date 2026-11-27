@@ -374,7 +374,7 @@ def get_status_card(sender_phone: str = "@Admin") -> str:
     sched = get_adaptive_wat_schedule()
     active_slots = sched.get("slots", POST_TIMES)
 
-    next_item_line = "Babu (Za a nemo ta atomatik)"
+    next_item_line = "Babu (Ana jiran bidiyo ko link daga WhatsApp)"
     if pending:
         first = pending[0]
         next_item_line = f"{first.get('scholar')} (`#{first.get('id')}`)"

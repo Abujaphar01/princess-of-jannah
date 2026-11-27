@@ -331,7 +331,7 @@ def publish_next_in_queue():
         print("[!] Queue is empty. No videos to publish.")
         return None
 
-    # Get first non-duplicate pending item
+    # Get first non-duplicate WhatsApp-submitted pending item (`is_shared_link == True`)
     while True:
         item_index = None
         item = None
@@ -342,8 +342,15 @@ def publish_next_in_queue():
                 break
 
         if not item:
-            print("[!] No pending videos found in queue.")
+            print("[!] No pending WhatsApp videos found in queue.")
             return None
+
+        if not item.get("is_shared_link", False):
+            print(f"[WHATSAPP-ONLY GUARD] Dropping non-WhatsApp auto-discovered item [{item.get('id')}] from queue.")
+            queue.pop(item_index)
+            with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+                json.dump(queue, f, indent=2, ensure_ascii=False)
+            continue
 
         existing_live_id = _find_existing_live_facebook_post(
             item.get("caption", ""),
