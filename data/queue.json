@@ -54,5 +54,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T07:44:57.530841+01:00",
     "status": "pending"
+  },
+  {
+    "id": "981d0330",
+    "source_video_id": "UA8VRLqCHTU",
+    "source_url": "https://www.youtube.com/watch?v=UA8VRLqCHTU",
+    "video_path": "media_vault/rijiyar_lemo_981d0330.mp4",
+    "caption": "Hukuncin maita Dr.\n\nProf. Muhammad Sani Umar Rijiyar Lemo. Allah ya kara mana ilimi mai amfani da ikhlasi.\n\n#PrincessOfJannah #RijiyarLemo #DarasinLittattafai #BulughulMaram",
+    "duration": 119,
+    "scholar": "Prof. Muhammad Sani Umar Rijiyar Lemo",
+    "scholar_id": "rijiyar_lemo",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T07:46:24.894729+01:00",
+    "status": "pending"
   }
 ]
