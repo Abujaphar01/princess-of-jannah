@@ -110,5 +110,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T09:08:17.750442+01:00",
     "status": "pending"
+  },
+  {
+    "id": "393edfe6",
+    "source_video_id": "4i7rt322-nY",
+    "source_url": "https://www.youtube.com/watch?v=4i7rt322-nY",
+    "video_path": "media_vault/gadon_kaya_393edfe6.mp4",
+    "caption": "Samari ku dinga bayarwa (Dr. Gadon Kaya).\n\nAllah ya sa mu dace, ya amfane mu da abin da muka saurara.\n\n#PrincessOfJannah #DrGadonKaya #Fatawa #Sunnah",
+    "duration": 31,
+    "scholar": "Sheikh Dr. Abdallah Gadon Kaya",
+    "scholar_id": "gadon_kaya",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:09:11.910035+01:00",
+    "status": "pending"
   }
 ]
