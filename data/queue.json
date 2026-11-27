@@ -152,5 +152,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T09:11:10.329926+01:00",
     "status": "pending"
+  },
+  {
+    "id": "a358adfd",
+    "source_video_id": "Al4I-XuPvVQ",
+    "source_url": "https://www.youtube.com/watch?v=Al4I-XuPvVQ",
+    "video_path": "media_vault/jaafar_mahmud_adam_a358adfd.mp4",
+    "caption": "Tunatarwa mai amfani kan tafsiri - Marigayi Sheikh Ja'afar Mahmud Adam.\n\nAllah ya jikan Malam da rahama, ya sa mu amfana da iliminsa.\n\n#PrincessOfJannah #SheikhJaafar #Sunnah #HausaIslam",
+    "duration": 30,
+    "scholar": "Sheikh Ja'afar Mahmud Adam (Rahimahullah)",
+    "scholar_id": "jaafar_mahmud_adam",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:11:48.465649+01:00",
+    "status": "pending"
   }
 ]
