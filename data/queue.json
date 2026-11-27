@@ -40,5 +40,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T07:43:16.621176+01:00",
     "status": "pending"
+  },
+  {
+    "id": "e7d73185",
+    "source_video_id": "mAGCYzBkJYM",
+    "source_url": "https://www.youtube.com/watch?v=mAGCYzBkJYM",
+    "video_path": "media_vault/albani_zaria_e7d73185.mp4",
+    "caption": "Mu koyi yadda akeyin sallama acikin sallah tare da Malam Albani Zaria @tsarabar Azumi (Sheikh Albani Zaria).\n\nAllah ya gafarta masa, ya hada mu a Aljannatul Firdaus.\n\n#PrincessOfJannah #AlbaniZaria #Hadisi #Sunnah",
+    "duration": 25,
+    "scholar": "Sheikh Muhammad Auwal Adam Albani Zaria (Rahimahullah)",
+    "scholar_id": "albani_zaria",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T07:44:57.530841+01:00",
+    "status": "pending"
   }
 ]
