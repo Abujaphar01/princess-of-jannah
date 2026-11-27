@@ -82,5 +82,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T09:06:37.707843+01:00",
     "status": "pending"
+  },
+  {
+    "id": "49a86e41",
+    "source_video_id": "5F75FCfEhaU",
+    "source_url": "https://www.youtube.com/watch?v=5F75FCfEhaU",
+    "video_path": "media_vault/isa_pantami_49a86e41.mp4",
+    "caption": "muyi hakuri da \"yan uwanmu. Musulumci_Short_Videos.\n\nDaga karatun Sheikh Prof. Isa Ali Ibrahim Pantami. Allah ya ba mu ikon aiki da abin da muka ji.\n\n#PrincessOfJannah #SheikhPantami #Akhlaq #Ladabi",
+    "duration": 30,
+    "scholar": "Sheikh Prof. Isa Ali Ibrahim Pantami",
+    "scholar_id": "isa_pantami",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:07:40.337905+01:00",
+    "status": "pending"
   }
 ]
