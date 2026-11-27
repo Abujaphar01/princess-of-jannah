@@ -40,5 +40,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T09:24:07.129115+01:00",
     "status": "pending"
+  },
+  {
+    "id": "cca265dc",
+    "source_video_id": "UA8VRLqCHTU",
+    "source_url": "https://www.youtube.com/watch?v=UA8VRLqCHTU",
+    "video_path": "media_vault/rijiyar_lemo_cca265dc.mp4",
+    "caption": "Hukuncin maita.\n\nProf. Muhammad Sani Umar Rijiyar Lemo. Allah ya kara wa Malam lafiya da nisan kwana mai albarka.\n\n#PrincessOfJannah #RijiyarLemo #DarasinLittattafai #BulughulMaram",
+    "duration": 119,
+    "scholar": "Prof. Muhammad Sani Umar Rijiyar Lemo",
+    "scholar_id": "rijiyar_lemo",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:24:52.917221+01:00",
+    "status": "pending"
   }
 ]
