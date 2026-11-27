@@ -220,6 +220,18 @@ async function startWhatsAppBot() {
     sock.ev.on('creds.update', saveCreds);
 
     let heartbeatTimer = null;
+    let bufferFlushTimer = null;
+
+    // Fix for @whiskeysockets/baileys v6.7.24 event-buffer bug:
+    // createBufferedFunction() activates ev.buffer() during offline/app-state sync without
+    // flushing in finally{}, trapping incoming messages.upsert in RAM forever unless flushed.
+    bufferFlushTimer = setInterval(() => {
+        try {
+            if (sock?.ev && typeof sock.ev.isBuffering === 'function' && sock.ev.isBuffering()) {
+                sock.ev.flush();
+            }
+        } catch (e) {}
+    }, 800);
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -236,6 +248,7 @@ async function startWhatsAppBot() {
 
         if (connection === 'close') {
             if (heartbeatTimer) clearInterval(heartbeatTimer);
+            if (bufferFlushTimer) clearInterval(bufferFlushTimer);
             const statusCode = (lastDisconnect?.error)?.output?.statusCode;
             log(`[!] Connection closed. Reason: ${lastDisconnect?.error}. StatusCode: ${statusCode}`);
             try {
@@ -373,41 +386,7 @@ async function startWhatsAppBot() {
                     continue;
                 }
 
-                // 4. Shared Link Detection (Facebook, YouTube Shorts, Instagram, TikTok, etc.)
-                const urlRegex = /(https?:\/\/[^\s]+)/g;
-                const urls = text.match(urlRegex);
-
-                if (urls && urls.length > 0) {
-                    const targetUrl = urls[0];
-                    log(`[+] Link detected: ${targetUrl} from ${senderPhone}`);
-
-                    await sendSafeMessage(sock, from, {
-                        text: `An karɓi link daga ${senderPhone}. Ana saukewa da sakawa a Queue...`,
-                        mentions: [sender]
-                    }, msg);
-
-                    execFile(
-                        'python',
-                        ['whatsapp_pipeline.py', '--url', targetUrl, '--phone', senderPhone, '--caption', text],
-                        { timeout: 600000 },
-                        async (error, stdout, stderr) => {
-                            if (error) {
-                                log(`[EXEC ERROR] ${error.message} | ${stderr}`);
-                            }
-                            const cleanCard = extractCardFromOutput(stdout) || (
-                                `*PRINCESS OF JANNAH*\n\nAssalamu Alaikum ${senderPhone},\n⚠️ An sami matsala wajen sauke wannan link: ${targetUrl}`
-                            );
-                            await sendSafeMessage(sock, from, {
-                                text: cleanCard,
-                                mentions: [sender]
-                            }, msg);
-                            log(`[+] Sent auto-queue confirmation card for ${targetUrl}`);
-                        }
-                    );
-                    continue;
-                }
-
-                // 5. Direct Video Upload Detection (Supports standard video & video-as-document)
+                // 4. Direct Video Upload Detection FIRST (Supports standard video & video-as-document)
                 const docMsg = msg.message.documentMessage ||
                     msg.message.documentWithCaptionMessage?.message?.documentMessage ||
                     msg.message.ephemeralMessage?.message?.documentMessage;
@@ -425,7 +404,7 @@ async function startWhatsAppBot() {
                     log(`[+] Direct video uploaded by ${senderPhone}`);
 
                     await sendSafeMessage(sock, from, {
-                        text: `An karɓi bidiyo daga ${senderPhone}. Ana gyara sauti (FFmpeg), sakawa a Queue, da turawa zuwa GitHub 24/7 Cloud...`,
+                        text: `An karɓi bidiyo daga ${senderPhone}. Ana gyara sauti da shirya shi don Facebook Reels + Story...`,
                         mentions: [sender]
                     }, msg);
 
@@ -454,18 +433,57 @@ async function startWhatsAppBot() {
                                     log(`[EXEC ERROR] ${error.message} | ${stderr}`);
                                 }
                                 const cleanCard = extractCardFromOutput(stdout) || (
-                                    `*PRINCESS OF JANNAH*\n\nAssalamu Alaikum ${senderPhone},\n✅ An karɓi bidiyo kuma an saka a Queue.`
+                                    `*PRINCESS OF JANNAH*\n\nAssalamu Alaikum ${senderPhone},\n✅ An karɓi bidiyo kuma an saka a gaban Queue.`
                                 );
                                 await sendSafeMessage(sock, from, {
                                     text: cleanCard,
                                     mentions: [sender]
                                 }, msg);
-                                log(`[+] Sent auto-queue confirmation card for direct video`);
+                                log(`[+] Sent confirmation card for direct video`);
                             }
                         );
                     } catch (err) {
                         log(`[!] Error downloading video message: ${err.message}`);
                     }
+                    continue;
+                }
+
+                // 5. Shared Link Detection (Facebook, YouTube Shorts, Instagram, TikTok, etc.)
+                const linkCandidateText = [
+                    text,
+                    msg.message?.extendedTextMessage?.canonicalUrl || '',
+                    msg.message?.extendedTextMessage?.matchedText || ''
+                ].join(' ');
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const urls = linkCandidateText.match(urlRegex);
+
+                if (urls && urls.length > 0) {
+                    const targetUrl = urls[0];
+                    log(`[+] Link detected: ${targetUrl} from ${senderPhone}`);
+
+                    await sendSafeMessage(sock, from, {
+                        text: `An karɓi link daga ${senderPhone}. Ana saukewa da shirya shi don Facebook Reels + Story...`,
+                        mentions: [sender]
+                    }, msg);
+
+                    execFile(
+                        'python',
+                        ['whatsapp_pipeline.py', '--url', targetUrl, '--phone', senderPhone, '--caption', text],
+                        { timeout: 600000 },
+                        async (error, stdout, stderr) => {
+                            if (error) {
+                                log(`[EXEC ERROR] ${error.message} | ${stderr}`);
+                            }
+                            const cleanCard = extractCardFromOutput(stdout) || (
+                                `*PRINCESS OF JANNAH*\n\nAssalamu Alaikum ${senderPhone},\n⚠️ An sami matsala wajen sauke wannan link: ${targetUrl}`
+                            );
+                            await sendSafeMessage(sock, from, {
+                                text: cleanCard,
+                                mentions: [sender]
+                            }, msg);
+                            log(`[+] Sent confirmation card for ${targetUrl}`);
+                        }
+                    );
                     continue;
                 }
 

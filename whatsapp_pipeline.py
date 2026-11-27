@@ -10,7 +10,7 @@ import json
 import shutil
 import sys
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from config import (
@@ -22,6 +22,7 @@ from config import (
     pull_state_from_github,
     sync_state_to_github,
 )
+from publisher import publish_next_in_queue
 from downloader import (
     download_video,
     load_scholars,
@@ -120,11 +121,51 @@ def compute_scheduled_slot_for_queue_position(queue_position: int) -> str:
     return f"{day_label} da misalin {ampm_str} WAT"
 
 
+def _can_instant_publish_now(cooldown_sec: int = 2700) -> bool:
+    """
+    Returns True if no Reel has been published in the last `cooldown_sec` (45 minutes),
+    allowing the first WhatsApp-shared video/link to go live immediately while spacing out batches!
+    """
+    history = _load_history()
+    if not history:
+        return True
+    try:
+        last_pub = history[-1].get("published_at", "")
+        if last_pub:
+            last_dt = datetime.fromisoformat(last_pub)
+            return (now_wat() - last_dt).total_seconds() >= cooldown_sec
+    except Exception:
+        pass
+    return True
+
+
+def _vip_insert_into_queue(item: dict) -> tuple[list[dict], int]:
+    """
+    Inserts a WhatsApp-shared item ahead of all auto-discovered items so admin shares
+    always publish first instead of waiting behind the auto-discovery buffer.
+    Returns (updated_queue, 1-based VIP position).
+    """
+    queue = _load_queue()
+    insert_idx = 0
+    for idx, q in enumerate(queue):
+        if q.get("is_shared_link") and q.get("status") == "pending":
+            insert_idx = idx + 1
+        else:
+            break
+    queue.insert(insert_idx, item)
+    with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+        json.dump(queue, f, indent=2, ensure_ascii=False)
+    return queue, insert_idx + 1
+
+
 def ingest_whatsapp_link(sender_phone: str, source_url: str, extra_text: str = "") -> str:
     """
-    Downloads a shared link sent in 'Princess of Jannah Posts', queues it
-    automatically, and formats the WhatsApp confirmation card.
+    Downloads a shared link sent in 'Princess of Jannah Posts', gives it VIP #1 priority
+    ahead of auto-discovered clips (publishing immediately if 45m+ since last post),
+    and returns a clean confirmation card.
     """
+    import re
+
     pull_state_from_github()
     scholars = load_scholars()
     scholar_override = None
@@ -143,31 +184,57 @@ def ingest_whatsapp_link(sender_phone: str, source_url: str, extra_text: str = "
         return (
             f"*PRINCESS OF JANNAH*\n\n"
             f"Assalamu Alaikum {sender_phone},\n"
-            f"⚠️ Ba a sami damar sauke wannan link ba ko kuma an riga an saka shi a Queue:\n"
+            f"⚠️ Ba a sami damar sauke wannan link ba ko kuma an riga an dora shi a shafin:\n"
             f"{source_url}"
         )
 
-    queue = _load_queue()
-    pending = [q for q in queue if q.get("status") == "pending"]
-    pos = len(pending)
-    sched_str = compute_scheduled_slot_for_queue_position(pos)
+    # If the sender typed their own caption alongside the link, preserve their exact caption
+    custom_text = re.sub(r"https?://\S+", "", extra_text or "").strip()
+    if len(custom_text) > 15:
+        scholar_obj = next((s for s in scholars if s["id"] == item.get("scholar_id")), None)
+        item["caption"] = clean_caption(custom_text, custom_text, scholar_obj, is_shared_link=True)
+        queue = _load_queue()
+        for q in queue:
+            if q.get("id") == item["id"]:
+                q["caption"] = item["caption"]
+        with open(QUEUE_FILE, "w", encoding="utf-8") as f:
+            json.dump(queue, f, indent=2, ensure_ascii=False)
+        sync_state_to_github(f"Auto: Update custom WhatsApp caption for [{item['id']}] [skip ci]")
 
     caption_preview = item.get("caption", "").split("\n")[0][:110]
     dur = item.get("duration") or 0
     dur_str = f"{int(dur)}s" if dur else "Short Reel"
 
-    card = (
+    queue = _load_queue()
+    pending = [q for q in queue if q.get("status") == "pending"]
+    pos = next((i + 1 for i, q in enumerate(pending) if q.get("id") == item["id"]), 1)
+
+    if pos == 1 and _can_instant_publish_now():
+        pub = publish_next_in_queue()
+        if pub and pub.get("fb_video_id"):
+            reel_url = f"https://www.facebook.com/reel/{pub['fb_video_id']}/"
+            return (
+                f"*PRINCESS OF JANNAH — AN WALLAFA KAI TSAYE!*\n\n"
+                f"Assalamu Alaikum {sender_phone},\n"
+                f"✅ An sauke link dinka kuma an dora shi a *Facebook Reels + Page Story* yanzu!\n\n"
+                f"• *Malami*: {pub.get('scholar')}\n"
+                f"• *Tsawon Bidiyo*: {dur_str}\n"
+                f"• *Taken/Caption*: {caption_preview}\n"
+                f"• *Kalli a Facebook*: {reel_url}"
+            )
+
+    sched_str = compute_scheduled_slot_for_queue_position(pos)
+    return (
         f"*PRINCESS OF JANNAH*\n\n"
         f"Assalamu Alaikum {sender_phone},\n"
-        f"✅ An karɓi link kuma an saka a Queue (`#{item['id']}`).\n\n"
+        f"✅ An karɓi link kuma an ba shi fifiko na *#{pos}* a gaban Queue (`#{item['id']}`).\n\n"
         f"• *Malami*: {item.get('scholar')}\n"
         f"• *Tsawon Bidiyo*: {dur_str}\n"
         f"• *Taken/Caption*: {caption_preview}\n"
-        f"• *Zango a Queue*: #{pos}\n"
+        f"• *Zango a Queue (VIP)*: #{pos}\n"
         f"• *Lokacin Wallafawa*: {sched_str}\n"
         f"• *Cloud Sync*: ✅ An adana a GitHub 24/7 Cloud"
     )
-    return card
 
 
 def _probe_video_duration_sec(video_path: Path) -> int:
@@ -261,28 +328,38 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
         "status": "pending",
     }
 
-    queue = _load_queue()
-    queue.append(item)
-    with open(QUEUE_FILE, "w", encoding="utf-8") as f:
-        json.dump(queue, f, indent=2, ensure_ascii=False)
+    queue, pos = _vip_insert_into_queue(item)
 
     # Sync both the mastered MP4 in media_vault/ and data/queue.json to GitHub 24/7 Cloud
-    sync_state_to_github(f"Auto: Queue direct WhatsApp video [{unique_id}] for {item['scholar']} [skip ci]")
+    sync_state_to_github(f"Auto: VIP queue direct WhatsApp video [{unique_id}] for {item['scholar']} [skip ci]")
 
-    pending = [q for q in queue if q.get("status") == "pending"]
-    pos = len(pending)
-    sched_str = compute_scheduled_slot_for_queue_position(pos)
     caption_preview = caption.split("\n")[0][:110]
     dur_str = f"{int(duration)}s" if duration else "Short Reel"
+
+    if pos == 1 and _can_instant_publish_now():
+        pub = publish_next_in_queue()
+        if pub and pub.get("fb_video_id"):
+            reel_url = f"https://www.facebook.com/reel/{pub['fb_video_id']}/"
+            return (
+                f"*PRINCESS OF JANNAH — AN WALLAFA KAI TSAYE!*\n\n"
+                f"Assalamu Alaikum {sender_phone},\n"
+                f"✅ An karɓi bidiyonka kuma an dora shi a *Facebook Reels + Page Story* yanzu!\n\n"
+                f"• *Malami*: {pub.get('scholar')}\n"
+                f"• *Tsawon Bidiyo*: {dur_str}\n"
+                f"• *Taken/Caption*: {caption_preview}\n"
+                f"• *Kalli a Facebook*: {reel_url}"
+            )
+
+    sched_str = compute_scheduled_slot_for_queue_position(pos)
 
     card = (
         f"*PRINCESS OF JANNAH*\n\n"
         f"Assalamu Alaikum {sender_phone},\n"
-        f"✅ An karɓi bidiyo kai tsaye kuma an saka a Queue (`#{unique_id}`).\n\n"
+        f"✅ An karɓi bidiyo kai tsaye kuma an ba shi fifiko na *#{pos}* a gaban Queue (`#{unique_id}`).\n\n"
         f"• *Malami*: {item['scholar']}\n"
         f"• *Tsawon Bidiyo*: {dur_str}\n"
         f"• *Taken/Caption*: {caption_preview}\n"
-        f"• *Zango a Queue*: #{pos}\n"
+        f"• *Zango a Queue (VIP)*: #{pos}\n"
         f"• *Lokacin Wallafawa*: {sched_str}\n"
         f"• *Cloud Sync*: ✅ An adana a GitHub 24/7 Cloud"
     )

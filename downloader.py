@@ -392,7 +392,17 @@ def download_video(url, scholar_override=None, is_shared_link=True, allow_duplic
     with open(QUEUE_FILE, "r", encoding="utf-8") as f:
         queue = json.load(f)
 
-    queue.append(item)
+    if is_shared_link:
+        # VIP Priority: insert WhatsApp-shared links BEFORE all auto-discovered items
+        insert_idx = 0
+        for idx, q in enumerate(queue):
+            if q.get("is_shared_link"):
+                insert_idx = idx + 1
+            else:
+                break
+        queue.insert(insert_idx, item)
+    else:
+        queue.append(item)
 
     with open(QUEUE_FILE, "w", encoding="utf-8") as f:
         json.dump(queue, f, indent=2, ensure_ascii=False)
