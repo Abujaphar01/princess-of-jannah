@@ -124,5 +124,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T09:09:11.910035+01:00",
     "status": "pending"
+  },
+  {
+    "id": "48936d6d",
+    "source_video_id": "wheCcEhzezw",
+    "source_url": "https://www.youtube.com/watch?v=wheCcEhzezw",
+    "video_path": "media_vault/abu_haitham_48936d6d.mp4",
+    "caption": "Yadda ya kamata mu shiryawa watan Ramadan by sheikh Muhammad S Khamis Abu Haisam.\n\nSheikh Abu Haitham. Allah ya kara mana ilimi mai amfani da ikhlasi.\n\n#PrincessOfJannah #SheikhAbuHaitham #SharhusSunnah #Tauhidi",
+    "duration": 60,
+    "scholar": "Sheikh Abu Haitham",
+    "scholar_id": "abu_haitham",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T09:10:16.899776+01:00",
+    "status": "pending"
   }
 ]
