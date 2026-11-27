@@ -143,10 +143,31 @@ def fetch_opengraph_caption(url: str) -> str:
     return ""
 
 
+def _strip_social_stats_boilerplate(text: str) -> str:
+    """
+    Strips Facebook/Instagram `<X> views · <Y> reactions | <Author> on Reels` HTML title boilerplate
+    when a shared Reel has no real post text, while preserving any real caption segment.
+    """
+    if not text:
+        return ""
+    s = text.strip()
+    s = re.sub(
+        r"^\s*[\d.,]+[KMB]?\s+views\s*(?:[·•|-]\s*[\d.,]+[KMB]?\s+(?:reactions|likes|comments)\s*)?\|\s*",
+        "",
+        s,
+        flags=re.IGNORECASE,
+    )
+    # If the entire remaining string is just "<Uploader> on Reels", treat as empty boilerplate
+    if re.match(r"^[^|\n]{1,60}\s+on\s+reels\s*$", s, flags=re.IGNORECASE):
+        return ""
+    s = re.sub(r"\s*\|\s*[^|\n]{1,60}\s+on\s+reels\s*$", "", s, flags=re.IGNORECASE)
+    return s.strip()
+
+
 def _is_generic(text: str) -> bool:
     if not text:
         return True
-    cleaned = text.strip().lower()
+    cleaned = _strip_social_stats_boilerplate(text).lower()
     return cleaned == "" or cleaned in GENERIC_TITLES
 
 
@@ -214,8 +235,8 @@ def clean_caption(raw_title, raw_description, scholar, is_shared_link=True):
     'Short videos, no need of long caption, If its by shared link, then just use the caption on the shared link'
     """
     caption = ""
-    desc = (raw_description or "").strip()
-    title = (raw_title or "").strip()
+    desc = _strip_social_stats_boilerplate(raw_description or "")
+    title = _strip_social_stats_boilerplate(raw_title or "")
 
     if is_shared_link:
         if not _is_generic(desc):
@@ -237,7 +258,11 @@ def clean_caption(raw_title, raw_description, scholar, is_shared_link=True):
     caption = re.sub(r"\n{3,}", "\n\n", caption).strip()
 
     if not caption:
-        caption = scholar["name"] if scholar else "Wa'azi da Nasiha"
+        caption = (
+            f"{scholar['name']}. Allah ya saka da alkhairi, ya sa mu amfana."
+            if scholar
+            else "Tunatarwa mai amfani. Allah ya sa mu dace, ya amfane mu da abin da muka saurara."
+        )
 
     # Only append scholar hashtags if the caption does not already contain hashtags
     if "#" not in caption:

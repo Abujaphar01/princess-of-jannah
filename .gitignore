@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 node_modules/
 auth_info_baileys/
+auth_info_baileys_backup/
 temp_media/
 qr_code.txt
 bot_status.txt
@@ -14,4 +15,5 @@ media_vault/*.ytdl
 media_vault/*.mastered.mp4
 data/analytics_cache.json
 data/invited_state.json
+data/processed_wa_msgs.json
 .DS_Store
