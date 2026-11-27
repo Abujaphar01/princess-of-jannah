@@ -54,5 +54,19 @@
     "audio_mastered": true,
     "added_at": "2026-11-27T07:46:24.894729+01:00",
     "status": "pending"
+  },
+  {
+    "id": "8f9144d0",
+    "source_video_id": "vV53yHeESCs",
+    "source_url": "https://www.youtube.com/watch?v=vV53yHeESCs",
+    "video_path": "media_vault/aminu_daurawa_8f9144d0.mp4",
+    "caption": "Sabawa iyayen shi.\n\nTare da Sheikh Aminu Ibrahim Daurawa. Allah ya kara mana ilimi mai amfani da ikhlasi.\n\n#PrincessOfJannah #SheikhDaurawa #Tarbiyya #ZamantakewarAure",
+    "duration": 104,
+    "scholar": "Sheikh Aminu Ibrahim Daurawa",
+    "scholar_id": "aminu_daurawa",
+    "is_shared_link": false,
+    "audio_mastered": true,
+    "added_at": "2026-11-27T07:49:44.223887+01:00",
+    "status": "pending"
   }
 ]
