@@ -16,7 +16,7 @@ import threading
 import time
 import urllib.parse
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from config import (
@@ -509,6 +509,44 @@ def trigger_send_test():
         </body>
     </html>
     """
+
+
+@app.post("/admin/import-auth")
+async def admin_import_auth(request: Request):
+    """
+    Securely imports an existing paired auth_info_baileys tar.gz archive onto the
+    cloud persistent volume and restarts whatsapp_bot.js without needing a new QR scan.
+    """
+    import io
+    import subprocess
+    import tarfile
+    from config import PAGE_ACCESS_TOKEN
+
+    expected = (PAGE_ACCESS_TOKEN or "")[:32]
+    provided = request.headers.get("x-admin-key", "")
+    if not expected or provided != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    raw_bytes = await request.body()
+    auth_dir = "auth_info_baileys"
+    os.makedirs(auth_dir, exist_ok=True)
+    for existing in os.listdir(auth_dir):
+        p = os.path.join(auth_dir, existing)
+        try:
+            if os.path.isfile(p):
+                os.remove(p)
+        except Exception:
+            pass
+
+    with tarfile.open(fileobj=io.BytesIO(raw_bytes), mode="r:gz") as tf:
+        tf.extractall(path=auth_dir, filter="data")
+
+    try:
+        subprocess.run(["pkill", "-f", "whatsapp_bot.js"], capture_output=True, timeout=5)
+    except Exception:
+        pass
+
+    return {"ok": True, "files": len(os.listdir(auth_dir))}
 
 
 @app.get("/reset-session", response_class=HTMLResponse)

@@ -312,9 +312,9 @@ async function startWhatsAppBot() {
 
             await refreshAllowedGroups(sock);
 
-            // One-time automatic recovery of videos/links already shared in the WhatsApp group
+            // Optional one-time recovery of videos/links when explicitly requested via env
             const targetGroupJid = TARGET_GROUP_JID || [...allowedGroupJids][0] || '120363413927212088@g.us';
-            if (!fs.existsSync(PROCESSED_WA_FILE) && targetGroupJid) {
+            if (process.env.RUN_INITIAL_HISTORY_RECOVERY === 'true' && !fs.existsSync(PROCESSED_WA_FILE) && targetGroupJid) {
                 setTimeout(async () => {
                     try {
                         log(`[HISTORY RECOVERY] Requesting last 50 messages of ${targetGroupJid} from primary phone...`);

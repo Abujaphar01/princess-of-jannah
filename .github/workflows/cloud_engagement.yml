@@ -18,9 +18,9 @@ jobs:
       contents: write
 
     steps:
-      - name: Wake / Keep-Alive 24/7 Cloud WhatsApp Server (Render)
+      - name: Wake / Keep-Alive 24/7 Cloud WhatsApp Server (Railway)
         run: |
-          curl -fsS --max-time 25 https://princess-of-jannah-engine.onrender.com/health || echo "Render service not yet deployed or waking up"
+          curl -fsS --max-time 25 https://princess-of-jannah-engine-production.up.railway.app/health || echo "Railway service waking up"
 
       - name: Checkout Repository
         uses: actions/checkout@v4

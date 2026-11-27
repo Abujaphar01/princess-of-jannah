@@ -15,6 +15,10 @@ PORT=${PORT:-10000}
 echo "[+] Starting FastAPI Dashboard on port ${PORT}..."
 uvicorn server:app --host 0.0.0.0 --port ${PORT} &
 
-# Start the WhatsApp Multi-Device Bot Daemon in foreground
+# Start the WhatsApp Multi-Device Bot Daemon in a self-healing supervisor loop
 echo "[+] Starting WhatsApp Bot Daemon for group: Princess of Jannah Posts..."
-exec node whatsapp_bot.js
+while true; do
+  node whatsapp_bot.js
+  echo "[!] whatsapp_bot.js exited; restarting in 3s..."
+  sleep 3
+done
