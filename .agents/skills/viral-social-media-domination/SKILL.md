@@ -30,20 +30,22 @@ Modern short-video recommendation engines rank and distribute videos to non-foll
 
 ---
 
-## 2. FFmpeg 0.0s Hook & Voice Clarity Mastering
+## 2. FFmpeg 0.0s Hook, Anti-Duplicate Reframing & Voice Clarity Mastering
 
-Many raw lecture recordings suffer from 1–3 seconds of dead silence at the beginning or muffled microphone audio, causing viewers to swipe away before the scholar speaks. Every video must pass through automated pre-publish mastering:
+Many raw lecture recordings suffer from 1–3 seconds of dead silence at the beginning or muffled microphone audio, while re-shared social videos carry hidden platform metadata and raw frame hashes (`vPDQ`) or blurry `360p` vertical streams (`height<=720` bug). Every video must pass through automated pre-publish HD mastering (`width<=1920, height<=1920` Full HD download + FFmpeg pass):
 
 ```bash
-ffmpeg -y -i input.mp4 \
-  -af "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-42dB,highpass=f=85,equalizer=f=3000:width_type=h:width=1000:g=2,dynaudnorm=f=150:g=15" \
-  -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k output.mp4
+ffmpeg -y -i input.mp4 -map_metadata -1 -map_chapters -1 \
+  -vf "crop=trunc(iw*0.96/2)*2:trunc(ih*0.96/2)*2:(iw-trunc(iw*0.96/2)*2)/2:(ih-trunc(ih*0.96/2)*2)/2,scale=720:1280:flags=lanczos,unsharp=3:3:0.3:3:3:0.0,eq=contrast=1.03:saturation=1.05:brightness=0.005,format=yuv420p" \
+  -af "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-42dB,highpass=f=85,equalizer=f=3000:width_type=h:width=1000:g=2,dynaudnorm=f=150:g=15,atempo=1.015" \
+  -c:v libx264 -preset veryfast -crf 22 -c:a aac -b:a 192k -movflags +faststart output.mp4
 ```
 
+- **Metadata & Chapter Strip (`-map_metadata -1 -map_chapters -1`):** Wipes hidden social-platform trace headers.
+- **Anti-Duplicate Visual Reframing (`crop` + Lanczos `720p–1080p` HD + `eq`):** Shifts spatial macroblocks by 4% and guarantees crisp vertical HD (`720x1280` / `1080x1920`) without cutting video duration.
 - **Leading Dead-Air Removal (`silenceremove`):** Strips opening silence so the scholar's voice hits immediately at `0.0s`.
 - **Low-End Rumble Cut (`highpass=f=85`):** Removes microphone stand hum, AC noise, and wind rumble below 85Hz.
-- **Vocal Presence Boost (`equalizer=f=3000:g=2`):** Boosts the 3kHz human speech intelligibility band so Hausa and Arabic articulation cuts clearly through phone speakers.
-- **Dynamic Loudness Normalization (`dynaudnorm`):** Levels quiet archival recordings (e.g., cassette recordings of Sheikh Ja'afar or Sheikh Albani Zaria) to broadcast clarity without clipping.
+- **Vocal Presence Boost (`equalizer=f=3000:g=2`) & Loudness (`dynaudnorm`):** Boosts 3kHz speech intelligibility and normalizes archival audio cleanly.
 
 ---
 
