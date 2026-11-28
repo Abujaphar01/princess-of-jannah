@@ -265,5 +265,23 @@
     "fb_video_id": "4642144966024972",
     "fb_story_id": "4687844958106081",
     "fb_type": "reel"
+  },
+  {
+    "id": "f9e3b87a",
+    "source_video_id": "2ogVou5-WuA",
+    "source_url": "https://www.youtube.com/shorts/2ogVou5-WuA",
+    "video_path": "media_vault/instant_2ogVou5-WuA.mp4",
+    "caption": "Nasiha mai ratsa zuciya daga Sheikh Ahmad Tijjani Yusuf Guruntum. Allah ya saka wa Malam da alkhairi, ya ba mu ikon aiki da abin da muka saurara.\n\n#PrincessOfJannah #SheikhGuruntum #Waazi #GyaranZuciya",
+    "duration": 110,
+    "scholar": "Sheikh Ahmad Tijjani Guruntum",
+    "scholar_id": "ahmad_guruntum",
+    "is_shared_link": true,
+    "audio_mastered": true,
+    "hd_v2_mastered": true,
+    "status": "published",
+    "published_at": "2026-11-28T20:58:53.820231+01:00",
+    "fb_video_id": "4542186749365417",
+    "fb_story_id": "1162351639664254",
+    "fb_type": "reel"
   }
 ]
