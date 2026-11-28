@@ -138,15 +138,17 @@ def background_fallback_reserve_maintainer(target_fallback: int = 4):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # WhatsApp-First + Non-WhatsApp Fallback Mode:
-    # GitHub Actions (daily_posts.yml) is the single scheduled publisher (zero duplicates).
-    if os.environ.get("ENABLE_LOCAL_SCHEDULER", "false").lower() in ("1", "true", "yes"):
+    # Unified 24/7 Cloud Mode:
+    # On Railway Cloud, run the 24/7 WAT Auto-Scheduler + Fallback Reserve Maintainer + Like Watcher together!
+    default_sched = "true" if os.environ.get("RAILWAY_ENVIRONMENT") else "false"
+    enable_sched = os.environ.get("ENABLE_LOCAL_SCHEDULER", default_sched).lower() in ("1", "true", "yes")
+    if enable_sched or os.environ.get("RAILWAY_ENVIRONMENT"):
         t = threading.Thread(target=background_wat_scheduler, daemon=True)
         t.start()
     else:
         append_server_log("WhatsApp-First Mode active — WhatsApp posts ALWAYS go first; non-WhatsApp fallback posts ONLY when WhatsApp queue is empty.")
-        t_fb = threading.Thread(target=background_fallback_reserve_maintainer, daemon=True)
-        t_fb.start()
+    t_fb = threading.Thread(target=background_fallback_reserve_maintainer, daemon=True)
+    t_fb.start()
     t_inv = threading.Thread(target=background_reaction_invite_watcher, daemon=True)
     t_inv.start()
     yield
@@ -531,6 +533,8 @@ async def admin_import_auth(request: Request):
     auth_dir = "auth_info_baileys"
     os.makedirs(auth_dir, exist_ok=True)
     for existing in os.listdir(auth_dir):
+        if existing == "_persistent_state":
+            continue
         p = os.path.join(auth_dir, existing)
         try:
             if os.path.isfile(p):
@@ -549,14 +553,71 @@ async def admin_import_auth(request: Request):
     return {"ok": True, "files": len(os.listdir(auth_dir))}
 
 
+@app.post("/admin/requeue-whatsapp-batch")
+async def admin_requeue_whatsapp_batch(request: Request):
+    """
+    Securely restores & HD-masters WhatsApp URLs directly on Railway's persistent volume
+    and records processed WhatsApp message IDs without spamming duplicate group replies.
+    """
+    from config import PAGE_ACCESS_TOKEN, DATA_DIR
+    from downloader import download_video
+    from viral_growth import optimize_existing_queue
+
+    expected = (PAGE_ACCESS_TOKEN or "")[:32]
+    provided = request.headers.get("x-admin-key", "")
+    if not expected or provided != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    body = await request.json()
+    urls = body.get("urls") or []
+    msg_ids = body.get("msg_ids") or []
+
+    proc_file = DATA_DIR / "processed_wa_msgs.json"
+    existing_ids = set()
+    if proc_file.exists():
+        try:
+            existing_ids = set(json.loads(proc_file.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    existing_ids.update(msg_ids)
+    proc_file.write_text(json.dumps(sorted(existing_ids), indent=2), encoding="utf-8")
+
+    def _worker():
+        added = 0
+        skipped = 0
+        for u in urls:
+            try:
+                res = download_video(u, is_shared_link=True)
+                if res:
+                    added += 1
+                    append_server_log(f"[BATCH RESTORE] HD-queued WhatsApp link [{res['id']}] -> {u}")
+                else:
+                    skipped += 1
+                    append_server_log(f"[BATCH RESTORE] Skipped already-live/duplicate link -> {u}")
+            except Exception as e:
+                append_server_log(f"[BATCH RESTORE] Error on {u}: {e}")
+        opt = optimize_existing_queue()
+        append_server_log(f"[BATCH RESTORE COMPLETE] Added={added}, Skipped={skipped}, Optimized={opt}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return {"ok": True, "queued_urls": len(urls), "recorded_msg_ids": len(existing_ids)}
+
+
 @app.get("/reset-session", response_class=HTMLResponse)
 def reset_session_endpoint():
     auth_dir = "auth_info_baileys"
     if os.path.exists(auth_dir):
-        try:
-            shutil.rmtree(auth_dir)
-        except Exception:
-            pass
+        for existing in os.listdir(auth_dir):
+            if existing == "_persistent_state":
+                continue
+            p = os.path.join(auth_dir, existing)
+            try:
+                if os.path.isdir(p):
+                    shutil.rmtree(p)
+                else:
+                    os.remove(p)
+            except Exception:
+                pass
     for f in [QR_FILE, STATUS_FILE, SEND_QUEUE_FILE, GROUP_JID_FILE]:
         if os.path.exists(f):
             try:

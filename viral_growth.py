@@ -86,7 +86,13 @@ def topic_fingerprint(text: str) -> str:
         "isa", "ali", "pantami", "mansur", "yelwa", "abdallah", "abdullahi", "usman",
         "gadon", "kaya", "abu", "haitham", "haisam", "khamis", "sadis", "jamil", "jameel",
         "shorts", "short", "waazi", "nasiha", "karatu", "darasi", "bayani", "maudui",
-        "tare", "daga", "bakin", "kan",
+        "tare", "daga", "bakin", "kan", "tunatarwa", "mai", "amfani", "allah", "dace",
+        "amfane", "abin", "abinda", "muka", "saurara", "kara", "mana", "imani", "ikhlasi",
+        "saka", "alkhairi", "musaurari", "wannan", "saurara", "kaji", "ratsa", "zuciya",
+        "kowane", "musulmi", "matukar", "rayuwarmu", "yau", "kullum", "kalmomi", "masu",
+        "duniya", "lahira", "ikon", "aiki", "shiga", "rai", "fadakarwa", "shirye", "bisa",
+        "tafarkin", "sunnah", "muhimmanci", "iyali", "alumma", "ilmantarwa", "rayuwar",
+        "tsoronsa", "gyaran", "muamala", "rabauta", "daraja", "neman", "tsira", "cika",
     }
     tokens = [t for t in re.findall(r"[a-z0-9']+", lowered) if len(t) > 2 and t not in noise_words]
     return " ".join(tokens[:8])
@@ -287,12 +293,36 @@ def build_viral_caption(
 # 2. FFMPEG 0.0s HOOK & VOICE CLARITY MASTERING
 # =====================================================================
 
-def master_video_for_retention(video_path: str | Path) -> bool:
+def _probe_video_dimensions(ffmpeg_exe: str, video_path: Path) -> tuple[int, int]:
     """
-    Runs an automated FFmpeg mastering pass on a video clip:
-    1. Trims dead opening silence so the scholar's voice starts at 0.0s.
-    2. Applies 85Hz high-pass filter to cut mic rumble.
-    3. Boosts 3kHz vocal clarity band (+2dB) and applies dynamic loudness normalization.
+    Probes (width, height) of the video stream via FFmpeg stderr.
+    """
+    try:
+        probe = subprocess.run(
+            [ffmpeg_exe, "-i", str(video_path)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        for line in (probe.stderr or "").splitlines():
+            if "Video:" in line:
+                m = re.search(r"\b(\d{2,5})x(\d{2,5})\b", line)
+                if m:
+                    return int(m.group(1)), int(m.group(2))
+    except Exception:
+        pass
+    return 720, 1280
+
+
+def master_video_for_retention(video_path: str | Path, is_shared_link: bool = False) -> bool:
+    """
+    Runs an automated FFmpeg mastering & anti-duplicate refresh pass (keeping full video length!):
+    1. Strips all hidden social-platform metadata & chapters (-map_metadata -1 -map_chapters -1).
+    2. Trims dead opening silence so speech starts cleanly at 0.0s.
+    3. Applies 85Hz high-pass filter, +2dB 3kHz vocal clarity boost, and dynamic loudness leveling
+       (plus a subtle 1.5% acoustic timing refresh on re-shared clips).
+    4. Reframes re-shared clips with a subtle 4% center crop, crisp Lanczos HD scaling (720p-1080p),
+       and gentle contrast/saturation polish so Meta's vPDQ filter treats them as fresh HD media.
     Safely falls back to the original file if anything fails.
     """
     target = Path(video_path)
@@ -304,19 +334,55 @@ def master_video_for_retention(video_path: str | Path) -> bool:
         print("[!] FFmpeg binary not found; skipping audio/retention mastering.")
         return False
 
-    temp_out = target.with_suffix(".mastered.mp4")
-    audio_filter = (
-        "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-42dB,"
-        "highpass=f=85,"
-        "equalizer=f=3000:width_type=h:width=1000:g=2,"
-        "dynaudnorm=f=150:g=15"
-    )
+    orig_w, orig_h = _probe_video_dimensions(ffmpeg_exe, target)
+    if orig_w <= orig_h:
+        # Vertical 9:16 or square 1:1 -> ensure at least crisp 720p width (capped at 1080p)
+        target_w = min(1080, max(720, (orig_w // 2) * 2))
+    else:
+        # Horizontal 16:9 -> ensure at least 1280p width (capped at 1920p)
+        target_w = min(1920, max(1280, (orig_w // 2) * 2))
+    target_h = max(2, (round(target_w * orig_h / max(1, orig_w)) // 2) * 2)
 
+    if is_shared_link:
+        video_filter = (
+            f"crop=trunc(iw*0.96/2)*2:trunc(ih*0.96/2)*2:(iw-trunc(iw*0.96/2)*2)/2:(ih-trunc(ih*0.96/2)*2)/2,"
+            f"scale={target_w}:{target_h}:flags=lanczos,"
+            f"unsharp=3:3:0.3:3:3:0.0,"
+            f"eq=contrast=1.03:saturation=1.05:brightness=0.005,"
+            f"format=yuv420p"
+        )
+        audio_filter = (
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-42dB,"
+            "highpass=f=85,"
+            "equalizer=f=3000:width_type=h:width=1000:g=2,"
+            "dynaudnorm=f=150:g=15,"
+            "atempo=1.015"
+        )
+    else:
+        video_filter = (
+            f"scale={target_w}:{target_h}:flags=lanczos,"
+            f"eq=contrast=1.02:saturation=1.03,"
+            f"format=yuv420p"
+        )
+        audio_filter = (
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-42dB,"
+            "highpass=f=85,"
+            "equalizer=f=3000:width_type=h:width=1000:g=2,"
+            "dynaudnorm=f=150:g=15"
+        )
+
+    temp_out = target.with_suffix(".mastered.mp4")
     cmd = [
         ffmpeg_exe,
         "-y",
         "-i",
         str(target),
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-vf",
+        video_filter,
         "-af",
         audio_filter,
         "-c:v",
@@ -324,7 +390,7 @@ def master_video_for_retention(video_path: str | Path) -> bool:
         "-preset",
         "veryfast",
         "-crf",
-        "23",
+        "22",
         "-c:a",
         "aac",
         "-b:a",
@@ -335,8 +401,8 @@ def master_video_for_retention(video_path: str | Path) -> bool:
     ]
 
     try:
-        print(f"[*] Mastering audio & 0.0s retention hook for: {target.name} ...")
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        print(f"[*] Mastering HD video ({orig_w}x{orig_h} -> {target_w}w) & retention audio for: {target.name} ...")
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=420)
         if res.returncode == 0 and temp_out.exists() and temp_out.stat().st_size > 50_000:
             temp_out.replace(target)
             print(f"[+] Mastering complete: {target.name} ({target.stat().st_size / (1024*1024):.2f} MB)")
@@ -344,7 +410,7 @@ def master_video_for_retention(video_path: str | Path) -> bool:
         else:
             if temp_out.exists():
                 temp_out.unlink(missing_ok=True)
-            print(f"[!] FFmpeg mastering returned non-zero ({res.returncode}), keeping original video.")
+            print(f"[!] FFmpeg mastering returned non-zero ({res.returncode}): {(res.stderr or '')[-250:]}")
             return False
     except Exception as e:
         if temp_out.exists():
@@ -605,9 +671,22 @@ def optimize_existing_queue() -> int:
         scholar = scholars.get(scholar_id, {"name": item.get("scholar", "Maluman Sunnah"), "hashtags": []})
         is_shared = bool(item.get("is_shared_link", False))
 
-        # 1. Upgrade caption if not already using our rotating archetype format
+        # 1. Sanitize shared captions (strip competitor promos / enrich emoji-only) or upgrade fallback captions
         old_caption = item.get("caption", "")
-        if not is_shared and "@followers" not in old_caption:
+        if is_shared:
+            from downloader import clean_caption
+            scholar_arg = scholar if scholar_id and scholar_id != "unknown" else None
+            new_cap = clean_caption(
+                old_caption,
+                old_caption,
+                scholar_arg,
+                is_shared_link=True,
+                seed_key=item.get("source_video_id") or item.get("id", ""),
+            )
+            if new_cap != old_caption:
+                item["caption"] = new_cap
+                print(f"[+] Sanitized/enriched shared caption for [{item['id']}]")
+        elif "@followers" not in old_caption:
             raw_topic = old_caption.split("\n")[0].strip()
             item["caption"] = build_viral_caption(
                 raw_title=raw_topic,
@@ -618,11 +697,13 @@ def optimize_existing_queue() -> int:
             item["viral_archetype"] = idx % 4
             print(f"[+] Upgraded caption for [{item['id']}] ({scholar.get('name')}) -> Archetype #{idx % 4}")
 
-        # 2. Run FFmpeg 0.0s hook & voice clarity mastering if not yet mastered
+        # 2. Run FFmpeg HD & retention mastering if not yet v2-mastered
         vpath = item.get("video_path", "")
-        if vpath and Path(vpath).exists() and not item.get("audio_mastered"):
-            if master_video_for_retention(vpath):
+        master_key = "hd_v2_mastered" if is_shared else "audio_mastered"
+        if vpath and Path(vpath).exists() and not item.get(master_key):
+            if master_video_for_retention(vpath, is_shared_link=is_shared):
                 item["audio_mastered"] = True
+                item[master_key] = True
 
         upgraded += 1
 

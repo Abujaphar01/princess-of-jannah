@@ -315,7 +315,7 @@ def _ensure_local_video(item: dict) -> str:
 
     try:
         from viral_growth import master_video_for_retention
-        master_video_for_retention(local_target)
+        master_video_for_retention(local_target, is_shared_link=bool(item.get("is_shared_link", False)))
     except Exception:
         pass
 

@@ -82,6 +82,24 @@ GENERIC_TITLES = {
     "log into facebook",
 }
 
+NATURAL_SHARED_FALLBACKS = [
+    "Tunatarwa mai ratsa zuciya ga kowane Musulmi. Allah ya sa mu dace, ya amfane mu.",
+    "Nasiha mai matukar amfani a rayuwarmu ta yau da kullum. Allah ya kara mana imani.",
+    "Kalmomi masu amfani duniya da lahira. Allah ya ba mu ikon aiki da abin da muka ji.",
+    "Wa'azi mai shiga rai da fadakarwa. Allah ya shirye mu bisa tafarkin Sunnah.",
+    "Tunatarwa mai muhimmanci ga iyali da al'umma. Allah ya saka da alkhairi.",
+    "Ilmantarwa mai amfani ga rayuwar Musulmi. Allah ya kara mana tsoronsa da ikhlasi.",
+    "Fadakarwa mai amfani kan gyaran zuciya da mu'amala. Allah ya sa mu rabauta.",
+    "Nasiha mai daraja ga masu neman tsira. Allah ya sa mu cika da imani.",
+]
+
+COMPETITOR_PROMO_PATTERNS = [
+    r"(?im)^.*?\bfollow\s+(?:up|us|me|our\s+page|page|for\s+more)\b.*$",
+    r"(?im)^.*?\b(?:like|share)\s+(?:and|&)\s+follow\b.*$",
+    r"(?im)^.*?\bsubscribe\s+to\s+(?:our|my|this)\b.*$",
+    r"(?im)^.*?\bku\s+biyo\s+shafin.*$",
+]
+
 
 def load_scholars():
     if SCHOLARS_FILE.exists():
@@ -229,14 +247,31 @@ def is_already_processed(source_url: str, video_id: str, candidate_title: str = 
     return False
 
 
-def clean_caption(raw_title, raw_description, scholar, is_shared_link=True):
+def _sanitize_competitor_promo(text: str) -> str:
+    """
+    Removes forwarded competitor page CTAs (e.g. 'Follow up <Other Network> for more...')
+    while preserving genuine Islamic/Hausa caption lines.
+    """
+    if not text:
+        return ""
+    cleaned = text
+    for pat in COMPETITOR_PROMO_PATTERNS:
+        cleaned = re.sub(pat, "", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned
+
+
+def clean_caption(raw_title, raw_description, scholar, is_shared_link=True, seed_key: str = ""):
     """
     User directive:
     'Short videos, no need of long caption, If its by shared link, then just use the caption on the shared link'
+    Also strips forwarded competitor 'Follow...' promos and enriches emoji-only/empty captions
+    with natural Hausa search keywords so Facebook indexes the Reel accurately.
     """
+    raw_combined_lower = f"{raw_description or ''} {raw_title or ''}".lower()
     caption = ""
-    desc = _strip_social_stats_boilerplate(raw_description or "")
-    title = _strip_social_stats_boilerplate(raw_title or "")
+    desc = _sanitize_competitor_promo(_strip_social_stats_boilerplate(raw_description or ""))
+    title = _sanitize_competitor_promo(_strip_social_stats_boilerplate(raw_title or ""))
 
     if is_shared_link:
         if not _is_generic(desc):
@@ -257,36 +292,54 @@ def clean_caption(raw_title, raw_description, scholar, is_shared_link=True):
     caption = re.sub(r"https?://\S+", "", caption)
     caption = re.sub(r"\n{3,}", "\n\n", caption).strip()
 
-    if not caption:
-        caption = (
-            f"{scholar['name']}. Allah ya saka da alkhairi, ya sa mu amfana."
-            if scholar
-            else "Tunatarwa mai amfani. Allah ya sa mu dace, ya amfane mu da abin da muka saurara."
-        )
+    # Count actual alphabetic characters (excluding hashtags) to detect emoji-only or ultra-short captions
+    text_no_tags = re.sub(r"#\S+", "", caption).strip()
+    alpha_count = sum(1 for c in text_no_tags if c.isalpha())
 
-    # Only append scholar hashtags if the caption does not already contain hashtags
+    seed_num = sum(ord(c) for c in (seed_key or raw_title or raw_description or "poj"))
+    fallback_line = NATURAL_SHARED_FALLBACKS[seed_num % len(NATURAL_SHARED_FALLBACKS)]
+    if any(k in raw_combined_lower for k in ("dua", "du'a", "addu'a", "zikir", "dhikr", "azkar")):
+        fallback_line = "Addu'a da zikiri masu matukar amfani a rayuwar Musulmi. Allah ya karba mana."
+
+    if not caption or alpha_count == 0:
+        emoji_prefix = f"{text_no_tags} " if text_no_tags else ""
+        if scholar:
+            caption = f"{emoji_prefix}Tunatarwa mai amfani daga {scholar['name']}. Allah ya saka da alkhairi, ya sa mu amfana.".strip()
+        else:
+            caption = f"{emoji_prefix}{fallback_line}".strip()
+    elif alpha_count < 16 and is_shared_link:
+        # Preserve short human prompt (e.g. 'Saurara Kaji 👂') and add natural Hausa context for search/SEO
+        caption = f"{caption}\n\n{fallback_line}"
+
+    # Ensure clean discovery hashtags if none present
     if "#" not in caption:
         hashtags = (
-            scholar.get("hashtags", ["#PrincessOfJannah", "#Sunnah", "#Arewa"])
+            scholar.get("hashtags", ["#PrincessOfJannah", "#MalumanSunnah", "#Tunatarwa", "#Arewa"])
             if scholar
-            else ["#PrincessOfJannah", "#Sunnah", "#Arewa"]
+            else ["#PrincessOfJannah", "#MalumanSunnah", "#Tunatarwa", "#Arewa"]
         )
-        return f"{caption}\n\n{' '.join(hashtags)}".strip()
+        return f"{caption}\n\n{' '.join(hashtags[:4])}".strip()
 
     return caption
 
 
 def download_media_to_path(url: str, output_path: Path) -> bool:
     """
-    Downloads a video stream to the specified MP4 output path via yt-dlp.
-    Uses ffmpeg (system PATH or imageio_ffmpeg) to merge HD MP4+AAC DASH streams when available.
+    Downloads a video stream to the specified MP4 output path via yt-dlp in Full HD (up to 1080p
+    for both vertical 9:16 1080x1920 Reels and horizontal 16:9 1920x1080 videos).
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     target_url = resolve_shared_url(url)
     ffmpeg_bin = find_ffmpeg_location()
-    print(f"[*] Downloading short video to: {output_path}")
+    print(f"[*] Downloading HD video to: {output_path}")
 
     yt_extra = ["--extractor-args", "youtube:player_client=android_vr,tv,web"] if __import__("os").environ.get("GITHUB_ACTIONS") else []
+    hd_format = (
+        "bestvideo[width<=1920][height<=1920][vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/"
+        "bestvideo[width<=1920][height<=1920][ext=mp4]+bestaudio[ext=m4a]/"
+        "bestvideo[width<=1920][height<=1920]+bestaudio/"
+        "best[width<=1920][height<=1920][ext=mp4]/best[ext=mp4]/best"
+    )
 
     if ffmpeg_bin:
         cmd_dl = [
@@ -294,7 +347,7 @@ def download_media_to_path(url: str, output_path: Path) -> bool:
             "--no-plugin-dirs",
             *yt_extra,
             "--ffmpeg-location", ffmpeg_bin,
-            "-f", "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[ext=mp4]/best",
+            "-f", hd_format,
             "--merge-output-format", "mp4",
             "-o", str(output_path),
             "--no-playlist",
@@ -387,9 +440,15 @@ def download_video(url, scholar_override=None, is_shared_link=True, allow_duplic
     # Viral Social Media Expert Mastering: 0.0s hook silence trimming + voice clarity EQ & loudness boost
     from viral_growth import build_viral_caption, master_video_for_retention
 
-    audio_mastered = master_video_for_retention(output_path)
+    audio_mastered = master_video_for_retention(output_path, is_shared_link=is_shared_link)
 
-    base_caption = clean_caption(title, description, scholar, is_shared_link=is_shared_link)
+    base_caption = clean_caption(
+        title,
+        description,
+        scholar,
+        is_shared_link=is_shared_link,
+        seed_key=source_video_id or unique_id,
+    )
     if is_shared_link:
         caption = base_caption
     else:
@@ -410,6 +469,7 @@ def download_video(url, scholar_override=None, is_shared_link=True, allow_duplic
         "scholar_id": scholar["id"] if scholar else "unknown",
         "is_shared_link": is_shared_link,
         "audio_mastered": audio_mastered,
+        "hd_v2_mastered": audio_mastered,
         "added_at": now_wat().isoformat(),
         "status": "pending",
     }

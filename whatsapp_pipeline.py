@@ -320,16 +320,17 @@ def ingest_whatsapp_video(sender_phone: str, video_path: str, raw_caption: str =
     except Exception:
         pass
 
-    audio_mastered = master_video_for_retention(output_path)
+    audio_mastered = master_video_for_retention(output_path, is_shared_link=True)
     duration = _probe_video_duration_sec(output_path)
 
     clean_raw = (raw_caption or "").strip()
-    if len(clean_raw) > 20:
+    if len(clean_raw) > 0:
         caption = clean_caption(
             raw_title=clean_raw,
             raw_description=clean_raw,
             scholar=scholar,
             is_shared_link=True,
+            seed_key=unique_id,
         )
     else:
         caption = build_viral_caption(

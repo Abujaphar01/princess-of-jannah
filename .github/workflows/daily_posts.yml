@@ -1,16 +1,8 @@
 name: Princess of Jannah Daily Reels Automation
 
 on:
-  schedule:
-    # Runs 4 times daily in Northern Nigeria time (WAT / UTC+1):
-    # 06:30 AM WAT -> 05:30 UTC
-    # 01:30 PM WAT -> 12:30 UTC
-    # 05:30 PM WAT -> 16:30 UTC
-    # 08:30 PM WAT -> 19:30 UTC
-    - cron: '30 5 * * *'
-    - cron: '30 12 * * *'
-    - cron: '30 16 * * *'
-    - cron: '30 19 * * *'
+  # Railway 24/7 Cloud Engine is now the single unified WAT scheduler + WhatsApp listener.
+  # Keeping workflow_dispatch for manual cloud backup only (zero split-brain duplicates).
   workflow_dispatch:
     inputs:
       shared_url:
